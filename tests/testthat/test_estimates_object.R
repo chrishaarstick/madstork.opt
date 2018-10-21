@@ -2,6 +2,7 @@
 
 # Estimates Unit Tests ----------------------------------------------------
 
+library(madstork.opt)
 library(madstork)
 library(tidyverse)
 library(lubridate)

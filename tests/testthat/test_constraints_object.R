@@ -1,6 +1,7 @@
 
 # Constraints Unit Test ---------------------------------------------------
 
+library(madstork.opt)
 library(madstork)
 library(tidyverse)
 library(lubridate)
