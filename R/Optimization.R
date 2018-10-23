@@ -34,7 +34,7 @@ portfolio_optimization <- function(portfolio,
 
   # Check symbols
   symbols <- estimates$symbols
-  checkmate::assert_subset(unique(portfolio$holdings$symbol), symbols)
+  checkmate::assert_subset(unique(as.character(portfolio$holdings$symbol)), symbols)
 
   if(is.null(prices)) {
     prices <- get_current_prices(symbols = symbols)

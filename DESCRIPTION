@@ -24,4 +24,6 @@ Suggests:
   highcharter,
   DT,
   formattable
+Remotes:
+  chrishaarstick/madstork
 RoxygenNote: 6.1.0
