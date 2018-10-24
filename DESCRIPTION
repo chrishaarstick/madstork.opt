@@ -24,6 +24,5 @@ Suggests:
   highcharter,
   DT,
   formattable
-Remotes:
-  git::https://github.com/chrishaarstick/madstork.git
+Remotes: chrishaarstick/madstork
 RoxygenNote: 6.1.0

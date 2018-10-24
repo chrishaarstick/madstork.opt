@@ -10,31 +10,28 @@ library(checkmate)
 
 context("Constraints Optimization Functionality")
 
-#
-#
-# # Estimates params
-# yrs <- 10
-# .symbols <- c("SPY", "QQQ", "TLT", "GLD")
-# .grain <- "year"
-# .periods <- 1
 
-# Optimization params
 
+# Estimates params
+yrs <- 10
+.symbols <- c("SPY", "QQQ", "TLT", "GLD")
+.grain <- "year"
+.periods <- 1
 
 # Set Estimates Class
-e1 <- test_estimates
-# e1 <- estimates(symbols = .symbols,
-#                 start_date = Sys.Date() - years(yrs),
-#                 end_date = Sys.Date(),
-#                 grain = .grain,
-#                 periods = .periods) %>%
-#   add_sample_mu() %>%
-#   add_sample_sigma() %>%
-#   add_dividends()
+#e1 <- test_estimates
+e1 <- estimates(symbols = .symbols,
+                start_date = Sys.Date() - years(yrs),
+                end_date = Sys.Date(),
+                grain = .grain,
+                periods = .periods) %>%
+  add_sample_mu() %>%
+  add_sample_sigma() %>%
+  add_dividends()
 
 # Prices
-#prices <- get_current_prices(.symbols, dividends = TRUE)
-prices <- test_prices
+prices <- get_current_prices(.symbols, dividends = TRUE)
+#prices <- test_prices
 p <- prices %>% split(.$symbol) %>% map("price")
 
 
