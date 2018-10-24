@@ -25,5 +25,5 @@ Suggests:
   DT,
   formattable
 Remotes:
-  chrishaarstick/madstork
+  git::https://github.com/chrishaarstick/madstork.git
 RoxygenNote: 6.1.0
