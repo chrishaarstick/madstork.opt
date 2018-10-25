@@ -1,0 +1,573 @@
+---
+title: "Market Index Forecast"
+author: "Haarstick"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document:
+    toc: true
+    theme: united
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, error = TRUE, eval=FALSE,
+                      warning = FALSE, message = FALSE,
+                      fig.align = "center", fig.width = 10, fig.height = 5)
+t1 <- Sys.time()
+```
+
+
+```{r r-config}
+
+# Library Path
+lib_path <- .libPaths()[1]
+
+# R packages
+packages <- c("a2munge", "a2modeler", "a2charter", "dplyr", "tidyr", "readxl", "tibble", "purrr", "ggplot2", "stringr", "lubridate", "sparklyr", "DT", "rlang")
+
+
+```
+
+
+```{r r-setup}
+
+# Load Libraries
+for(pck in packages) library(pck, lib.loc = lib_path, character.only = TRUE)
+
+```
+
+
+```{r spark-config}
+
+## Spark Configuration Parameters
+
+# Create Spark Connection
+spark <- TRUE
+
+# Spark Master
+spark_master <- "local"
+
+# Spark Version
+spark_version <- "2.3.0"
+
+# Additional Spark Configuration Settings. Add configuration with named element
+# in list
+spark_config_args <- list(spark.memory.fraction = 0.9)
+
+```
+
+
+```{r data-import}
+
+# Get Shiller Market Data
+dataset_name <- "Shiller CAPE"
+url <- "http://www.econ.yale.edu/~shiller/data/ie_data.xls"
+destfile <- paste(c("Shiller-", as.character(Sys.Date()), ".xls"), collapse = "")
+download.file(url, destfile, mode = "wb")
+raw <- readxl::read_excel(path = destfile, 
+                         sheet = "Data",
+                         skip = 7,
+                         col_names = TRUE,
+                         col_types = c("text", rep("numeric", 12)))
+# file.remove(destfile)
+```
+
+
+```{r data-prep}
+
+# Prep data for analysis
+clean <- raw %>% 
+  dplyr::rename_all(tolower) %>% 
+  dplyr::rename(gs10 = `rate gs10`) %>% 
+  tidyr::separate(., "date", into = c("year", "month"), sep = "\\.") %>%
+  dplyr::mutate(month = str_sub(month, 1, 2)) %>% 
+  dplyr::mutate_at(c('month', 'year'), as.numeric) %>% 
+  dplyr::mutate(day = as.numeric(days_in_month(month)),
+                date = paste(paste(year, month, sep = "-"), day, sep = "-"),
+                date = as.Date(date)) %>% 
+  dplyr::mutate(index = row_number()) %>% 
+  dplyr::mutate(gs10 = gs10/100) %>% 
+  dplyr::filter(! is.na(date)) %>% 
+  dplyr::slice(121:n()) %>% 
+  dplyr::select(index, date, price, dividend, gs10, cpi, cape)
+```
+
+
+```{r data-impute}
+
+# Impute any missing values
+for(var in c("dividend", "gs10", "cpi", "cape")) {
+  horizon <- clean %>% 
+    pull(!!sym(var)) %>% 
+    tail(120) %>% 
+    is.na() %>% 
+    sum()
+  
+  if(horizon > 0) {
+    var_forecaster <- clean %>% 
+      select_at(c("index", var)) %>%
+      na.omit() %>% 
+      forecaster(df = .,
+                 target = var,
+                 index_var = "index",
+                 name = paste(var, "imputer")) %>%
+      add_holdout_samples(splits = c(.9, .1)) %>%
+      add_model(pipe = NULL, method = "auto.arima") %>%
+      add_model(pipe = NULL, method = "ets") %>%
+      train_models(.) %>%
+      set_final_model(., method = "best", reevaluate = TRUE, refit = TRUE) %>% 
+      predict(., periods = horizon)
+    
+    clean[is.na(clean[[var]]), var] <- var_forecaster$predictions$mean
+  }
+}
+
+
+```
+
+
+
+```{r data-transform}
+
+# Transform data for analysis
+df <- clean %>% 
+  dplyr::mutate(ftr_ret_1yr = lead(price, 12) / price - 1,
+                ret_1yr = price / lag(price, 12) - 1, 
+                ret_2yr = price / lag(price, 24) - 1,
+                ret_5yr = price / lag(price, 60) - 1,
+                ret_10yr = price / lag(price, 120) - 1,
+                inf_1yr = cpi / lag(cpi, 12) - 1,
+                div_yield = dividend / price,
+                div_yield_real = div_yield - inf_1yr,
+                gs10_real = gs10 - inf_1yr,
+                gs10_real_d_1yr = gs10_real / lag(gs10_real, 12) - 1,
+                gs10_real_d_5yr = gs10_real / lag(gs10_real, 60) - 1,
+                cape_d_1yr = cape / lag(cape, 12) - 1,
+                cape_d_5yr = cape / lag(cape, 60) - 1,
+                cape_d_10yr = cape / lag(cape, 120) - 1)
+```
+
+
+```{r data-split}
+
+# add flag for target
+df <- df %>% 
+  mutate(target = ifelse(is.na(ftr_ret_1yr), 0, 1))
+
+# Split into train and test
+train <- df %>% 
+  filter(target == 1) %>% 
+  select(-target) %>% 
+  na.omit()
+
+test <- df %>% 
+  filter(target == 0) %>% 
+  select(-target)
+```
+
+
+
+```{r spark-setup, eval = FALSE}
+
+# If Spark Option True, create connection
+if(spark) {
+  
+  conf <- modifyList(spark_config(), spark_config_args)
+  sc <- spark_connect(master = spark_master,
+                      version = spark_version,
+                      config = conf)
+}
+```
+
+
+```{r spark-import}
+
+# import train data into spark
+sdf <- train %>% 
+  select(-index, -date) %>% 
+  dplyr::copy_to(sc, ., "train", overwrite = TRUE)
+```
+
+
+
+```{r feature-pipeline}
+
+# Feature Pipeline
+feature_pipe <- pipeline(expr = function(df) {
+   target <- "ftr_ret_1yr"
+  
+  df <- df %>% 
+    dplyr::select(ftr_ret_1yr, ret_1yr, ret_2yr, ret_5yr, ret_10yr,
+                  cape, cape_d_1yr, cape_d_5yr, cape_d_10yr, 
+                  gs10_real, gs10_real_d_1yr, gs10_real_d_5yr, div_yield_real)  %>% 
+    mutate(cape_cross_d_1yr = cape * cape_d_1yr,
+           cape_cross_d_10yr = cape * cape_d_10yr,
+           cape_cross_ret_1yr = cape * ret_1yr,
+           cape_cross_ret_10yr = cape * ret_10yr)
+  df %>% 
+    a2munge::normalizer(measure_vars = setdiff(colnames(df), target))
+  
+},
+uid  = "Feature-Pipe",
+desc = "test-feature pipe")
+
+```
+
+
+```{r regressor}
+
+# Create Regressor
+r1 <- sdf %>% 
+  regressor(.,
+            "ftr_ret_1yr",
+            name = "mkt-shiller-5yr-forecast",
+            uid = sparklyr::random_string("regressor"),
+            version = "1.0.0",
+            desc = "Regression model to predict 5 year market return using Shiller CAPE metric",
+            scientist = "Haarstick",
+            execution_strategy = "sequential",
+            refit = TRUE,
+            save_submodels = TRUE,
+            seed = 319) %>% 
+  set_measure(RMSE) %>% 
+  add_holdout_samples(splits = c(.6, .3, .1)) %>% 
+  add_model(., 
+            method = "ml_linear_regression",
+            pipe = feature_pipe,
+            param_map = list(standardization = FALSE),
+            uid = "baseline",
+            desc = "Baseline Model") %>% 
+  add_model(.,
+            method = "ml_linear_regression",
+            pipe = feature_pipe,
+            param_map = list(standardization = FALSE,
+                             elastic_net_param = 1,
+                             reg_param = c(0.05, 0.01, 0.001)),
+            uid = "lasso",
+            desc = "Lasso regression model") %>%
+  add_model(.,
+            method = "ml_random_forest_regressor",
+            pipe = feature_pipe,
+            param_map = list(subsampling_rate = c(.75),
+                             num_trees = c(50, 250)),
+            uid = "randomForest",
+            desc = "Random Forest with minimal tuning") %>%
+  # add_model(.,
+  #           method = "ml_gbt_regressor",
+  #           pipe = feature_pipe,
+  #           param_map = list(max_iter = c(50, 100, 200),
+  #                            max_depth = c(2, 5),
+  #                            subsampling_rate = c(.75, 1)),
+  #           uid = "gbt",
+  #           desc = "GBT with moderate tuning") %>%
+  train_models() %>% 
+  set_final_model("best", reevaluate = TRUE, refit = FALSE)
+
+```
+
+
+```{r predictions}
+
+# Combine datasets
+total <- bind_rows(train, test)
+
+# Apply model
+r1_preds <- total %>% 
+  copy_to(sc, ., "df", overwrite = TRUE) %>% 
+  predict(r1, .) 
+
+# Predictions
+preds <- r1_preds$predictions %>% 
+  collect() %>% 
+  bind_cols(total %>%
+              select(date)) %>% 
+  filter(date %in% test$date) %>% 
+  select(date, predicted)
+
+# Current Forecast
+current_pred <- preds %>% 
+  tail(1) %>% 
+  mutate(date_made = Sys.Date(),
+         periods = 1,
+         units = "year",
+         horizon_start = date + lubridate::days(1),
+         horizon_end = date + lubridate::years(1))
+
+```
+
+
+
+```{r execution, eval=TRUE, ref.label=c('r-config', 'r-setup', 'spark-config', 'spark-setup',  'data-import', 'data-prep', 'data-transform', 'data-split','spark-import', 'feature-pipeline', 'regressor', 'predicted')}
+
+```
+
+
+```{r regressor-print, eval=TRUE, results='asis'}
+cat("##", r1$name, "Regressor", "\n")
+
+```
+
+* uid: __`r r1$uid` __ 
+* Version: __`r r1$version`__  
+* Created on: __`r as.character(r1$created_on)`__ 
+* Created by: __`r r1$scientist`__
+* Description: _`r r1$desc`_  
+
+
+```{r data-print, eval=TRUE, results='asis'}
+cat("###", "Input Data:", dataset_name, "\n")
+
+```
+
+* Location: __`r dataset_path`__
+* Type: __`r dataset_type`__
+
+
+#### Sample Records
+
+
+```{r sample-records, eval=TRUE}
+
+# Datatable with sample records
+r1$data %>% 
+  collecter(sample = TRUE, method = "head", size = 100) %>% 
+  DT::datatable(.,
+                options = list(scrollX = TRUE),
+                caption = paste(dataset_name, "Sample Records")) %>% 
+  DT::formatRound(colnames(r1$data),digits=3)
+```
+
+
+```{r target-print, eval=TRUE, results='asis'}
+cat("###", "Target:", r1$target,"\n")
+
+```
+
+
+```{r target-summary, eval=TRUE}
+
+r1$data %>%
+  a2munge::collecter(sample = FALSE) %>% 
+  a2charter::gg_histogram(.,
+                          r1$target,
+                          title = paste(paste0(r1$name, ":"), r1$target))
+
+r1$data %>%
+  dplyr::summarise_at(r1$target, funs(min, mean, sd, max)) %>% 
+  knitr::kable(., 
+               digits = 3,
+               caption = paste(paste0(r1$name, ":"), r1$target, "Summary"))
+```
+
+
+### Features
+
+```{r feature-plots, eval=TRUE, fig.height=8}
+
+total %>% 
+  filter(date >= max(date) - lubridate::years(10)) %>% 
+  gather(key = "variable", value = "value", -index, -date, -!!sym(r1$target)) %>%
+  gg_line_chart("date", "value",
+                facet_formula = "~variable",
+                facet_args = list(scales = "free"))
+```
+
+
+### Pipelines
+
+
+```{r pipeline-print, eval=TRUE}
+for(p in seq_along(r1$pipelines)) {
+  print(r1$pipelines[[p]])
+}
+```
+
+
+### Models
+
+
+```{r models-print, eval=TRUE, results='asis'}
+
+for(i in seq_along(r1$models)) {
+  cat("####", names(r1$models)[i])
+  cat("\n")
+  cat("* Method:", paste0("__", r1$models[[i]]$method, "__"), "\n")
+  cat("* Package:", paste0("__", r1$models[[i]]$package, "__"), "\n")
+  cat("* Pipeline:", paste0("__", r1$models[[i]]$pipe, "__"), "\n")
+  cat("* Status:", paste0("__", r1$models[[i]]$status, "__"), "\n")
+  cat("* Last Updated:", paste0("__", r1$models[[i]]$last_updated, "__"), "\n")
+  cat("\n")
+  
+  cat("##### Parameter Tuning:\n")
+  for(p in seq_along(r1$models[[i]]$param_map)) {
+    cat("*",
+        paste0(names(r1$models[[i]]$param_map)[p], ":"),
+        paste(r1$models[[i]]$param_map[[p]], collapse = ", "),
+        "\n")
+  }
+  cat("\n")
+}
+
+```
+
+
+### Leaderboard
+
+
+```{r leaderboard, eval=TRUE}
+r1$performance %>% 
+  dplyr::select(model_uid, pipeline_uid, method, param_grid, sample, !!r1$measure$method) %>% 
+  dplyr::arrange_at(r1$measure$method) %>% 
+  knitr::kable(.,
+               digits = 3,
+               caption = paste(r1$name, "Model Leaderboard"))
+```
+
+
+### Baseline Model
+
+```{r baseline, eval=TRUE}
+
+baseline <- r1$models$baseline$fit$stages[[2]]
+features <- setdiff(colnames(baseline$summary$predictions),
+                    c(r1$target, "features", "label", "prediction"))
+tibble(feature  = c("Intercept", features),
+       estimate = c(baseline$intercept, baseline$coefficients),
+       stderr   = baseline$summary$coefficient_standard_errors(),
+       t_stat   = baseline$summary$t_values,
+       p_values = baseline$summary$p_values) %>% 
+  knitr::kable(.,
+               digits = 3,
+               caption = "Baseline Model Coefficients Summary")
+
+tibble(r2   = baseline$summary$r2,
+       rmse = baseline$summary$root_mean_squared_error,
+       mse  = baseline$summary$mean_squared_error,
+       mae  = baseline$summary$mean_absolute_error) %>% 
+  knitr::kable(.,
+               digits = 3,
+               caption = "Baseline Model Fit Summary")
+```
+
+
+
+### Final Model
+
+
+```{r final-model, eval=TRUE, results='asis'}
+
+cat("* uid:", paste0("__", r1$final_model$uid, "__"), "\n")
+cat("* Method:", paste0("__", r1$final_model$method, "__"), "\n")
+cat("* Package:", paste0("__", r1$final_model$package, "__"), "\n")
+cat("* Status:", paste0("__", r1$final_model$status, "__"), "\n")
+cat("* Last Updated:", paste0("__", r1$final_model$last_updated, "__"), "\n")
+cat("\n")
+
+```
+
+
+```{r final-model-params, eval=TRUE}
+
+r1$final_model$fit$stages[[2]]$param_map %>%
+  as.data.frame() %>%
+  tidyr::gather(key = "parameter") %>% 
+  dplyr::filter(! grepl("_col|seed", parameter)) %>% 
+  knitr::kable(.,
+               table.attr = "style='width:30%;'",
+               caption = "Final Model Parameters")
+```
+
+
+```{r test-fit-print, eval=TRUE, results='asis'}
+if(! is.null(r1$samples$test_holdout_prct)) {
+  cat("#### Test Holdout Fit\n")
+  cat("Final Model Performance on Test Holdout:\n\n")
+  cat("*", r1$measure$method, "=", round(r1$final_model$test_performance[[1]], 3), "\n")
+}
+```
+
+
+```{r test-resid, eval=TRUE}
+if(! is.null(r1$samples$test_holdout_prct)) {
+  tpdf <- r1$final_model$test_predictions %>% 
+    a2munge::collecter(., sample = FALSE) 
+  
+  pred_var <- setdiff(colnames(tpdf), r1$target) 
+  
+  tpdf <- tpdf %>% 
+    dplyr::mutate(residual = !!rlang::sym(pred_var) - !!rlang::sym(r1$target))
+  
+  plt1 <- a2charter::gg_scatter_chart(tpdf,
+                                      pred_var,
+                                      r1$target,
+                                      alpha = .5,
+                                      smoother = TRUE,
+                                      smooth_method = "lm",
+                                      smooth_color = "red",
+                                      smooth_ci = FALSE) +
+    ggplot2::geom_abline(slope = 1, intercept = 0, linetype = 5, color = "grey50")
+  
+  plt2 <- a2charter::gg_scatter_chart(tpdf,
+                                      pred_var,
+                                      "residual",
+                                      alpha = .5,
+                                      smoother=FALSE) +
+    ggplot2::geom_hline(yintercept = 0, linetype = 5, color = "grey50")
+  
+  gridExtra::grid.arrange(plt1, plt2, ncol=2)
+  
+  
+  train %>%
+    dplyr::slice(r1$samples$test_index) %>%
+    dplyr::select(date, ftr_ret_1yr) %>%
+    dplyr::mutate_at('ftr_ret_1yr', round, 5) %>%
+    dplyr::inner_join(tpdf %>%
+                        dplyr::select(-residual) %>% 
+                        dplyr::mutate_at('ftr_ret_1yr', round, 5),
+                      by = 'ftr_ret_1yr') %>%
+    dplyr::arrange(date) %>%
+    tidyr::gather(key="variable", "value", -date) %>%
+    a2charter::gg_line_chart(., "date", "value",
+                             color = "variable",
+                             linetype = "variable",
+                             title = "Model Predicted vs Actual",
+                             subtitle = "Test Holdout",
+                             y_axis_title = "Future 1yr Return") +
+    ggplot2::scale_y_continuous(labels = scales::percent) +
+    ggplot2::geom_hline(yintercept = 0, linetype = 5, color = "grey50")
+}
+```
+
+
+### Predictions
+
+```{r predictions-plot, eval=TRUE}
+
+preds %>% 
+  a2charter::gg_line_chart(., "date", "predicted",
+                           points = TRUE,
+                           point_args = list(size=3, shape=1),
+                           title = "Out of Sample Predictions",
+                           y_axis_title = "Future 1yr Return") + 
+  ggplot2::scale_y_continuous(labels = scales::percent) +
+  ggplot2::geom_hline(yintercept = 0, linetype = 5, color = "grey50")
+
+current_pred %>% 
+  knitr::kable(.,
+               digits = 3,
+               caption = "Current 1yr Market Forecast")
+```
+
+
+
+## Configuration
+
+```{r regressor-config, echo=TRUE, eval=FALSE, ref.label=c('feature-pipeline','regressor')}
+
+```
+
+
+## Appendix
+
+```{r config, echo=TRUE, eval=FALSE, ref.label=c('r-config', 'spark-config')}
+
+```

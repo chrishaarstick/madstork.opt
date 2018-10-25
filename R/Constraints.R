@@ -658,7 +658,8 @@ meet_constraint.cardinality_constraint <- function(constraint,
 
     if(cc$value > cc$max) {
       tp <- trade_pairs %>%
-        dplyr::filter(sell %in% unique(port$holdings$symbol))
+        dplyr::filter(sell %in% unique(port$holdings$symbol) & buy == "CASH")
+      
       .amount <- get_holdings_market_value(port) %>%
         dplyr::group_by(symbol) %>%
         dplyr::summarise_at("market_value", sum) %>%
@@ -668,10 +669,10 @@ meet_constraint.cardinality_constraint <- function(constraint,
     } else {
       .syms <- setdiff(estimates$symbols, unique(port$holdings$symbol))
       tp <- trade_pairs %>%
-        dplyr::filter(buy %in% .syms)
+        dplyr::filter(buy %in% .syms & sell == "CASH")
       .amount <- amount
     }
-
+    
     port <- nbto(
       pobj = port,
       cobj = constraints,
@@ -682,7 +683,7 @@ meet_constraint.cardinality_constraint <- function(constraint,
       minimize = minimize,
       amount = .amount,
       lot_size = lot_size
-      )$portfolio
+    )$portfolio
 
     holdings <- get_symbol_estimates_share(port, estimates)
     cc <- check_constraint(constraint, holdings)
@@ -973,7 +974,7 @@ meet_constraint.performance_constraint <- function(constraint,
                                                    constraints,
                                                    estimates,
                                                    prices,
-                                                   trade_pairs = NULL,
+                                                   trade_pairs,
                                                    target,
                                                    minimize,
                                                    amount,
@@ -992,8 +993,6 @@ meet_constraint.performance_constraint <- function(constraint,
   check <- cc$check
   iter <- 0
   target <- as.character(cc$args)
-  tp <- trade_pairs(portfolio, estimates, target) %>%
-    filter(delta > 0)
   minimize <- ifelse(target %in% c("sd", "risk"), TRUE, FALSE)
 
   while(! check) {
@@ -1003,7 +1002,7 @@ meet_constraint.performance_constraint <- function(constraint,
       cobj = constraints,
       eobj = estimates,
       prices = prices,
-      trade_pairs = tp,
+      trade_pairs = trade_pairs,
       target = target,
       minimize = minimize,
       amount = amount,

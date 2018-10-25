@@ -19,7 +19,6 @@ yrs <- 10
 .periods <- 1
 
 # Set Estimates Class
-#e1 <- test_estimates
 e1 <- estimates(symbols = .symbols,
                 start_date = Sys.Date() - years(yrs),
                 end_date = Sys.Date(),
@@ -31,7 +30,6 @@ e1 <- estimates(symbols = .symbols,
 
 # Prices
 prices <- get_current_prices(.symbols, dividends = TRUE)
-#prices <- test_prices
 p <- prices %>% split(.$symbol) %>% map("price")
 
 
@@ -303,7 +301,7 @@ test_that("Meet Constraints optimization meets performance constrainsts", {
 
   # Create Constraints
   c6 <- constraints(symbols = e1$symbols) %>%
-    add_max_risk(max = .025)
+    add_max_risk(max = .04)
 
   # Create Optimization
   po <- portfolio_optimization(p1, e1, c6, prices, target = .target)
@@ -315,12 +313,12 @@ test_that("Meet Constraints optimization meets performance constrainsts", {
                           constraints = filter_constraints(c6, 0),
                           estimates = e1,
                           prices = prices,
-                          trade_pairs = NULL,
+                          trade_pairs = po$trade_pairs,
                           target = .target,
                           minimize = FALSE,
-                          amount = trade_amount,
+                          amount = trade_amount * 2,
                           lot_size = .lot_size,
-                          max_iter = 1)
+                          max_iter = 5)
   cc6.1 <- check_constraints(c6, p6.1, e1)
   expect_true(cc6.1$check[1])
 
@@ -340,7 +338,7 @@ test_that("Meet Constraints optimization meets performance constrainsts", {
                            constraints = filter_constraints(c6a, 0),
                            estimates = e1,
                            prices = prices,
-                           trade_pairs = NULL,
+                           trade_pairs = po$trade_pairs,
                            target = .target,
                            minimize = FALSE,
                            amount = trade_amount,
