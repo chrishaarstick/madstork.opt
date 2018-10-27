@@ -344,7 +344,8 @@ meet_constraint.symbol_constraint <- function(constraint,
                                               minimize,
                                               amount,
                                               lot_size,
-                                              max_iter = 5) {
+                                              max_iter = 5,
+                                              ...) {
   checkmate::assert_class(portfolio, "portfolio")
   checkmate::assert_data_frame(prices)
   checkmate::assert_subset(c("symbol", "price", "dividend"), colnames(prices))
@@ -492,7 +493,8 @@ meet_constraint.cash_constraint <- function(constraint,
                                             minimize,
                                             amount,
                                             lot_size,
-                                            max_iter = 5) {
+                                            max_iter = 5,
+                                            ...) {
 
   checkmate::assert_class(portfolio, "portfolio")
   checkmate::assert_data_frame(prices)
@@ -640,7 +642,8 @@ meet_constraint.cardinality_constraint <- function(constraint,
                                                    minimize,
                                                    amount,
                                                    lot_size,
-                                                   max_iter = 5) {
+                                                   max_iter = 5,
+                                                   ...) {
   checkmate::assert_class(portfolio, "portfolio")
   checkmate::assert_data_frame(prices)
   checkmate::assert_subset(c("symbol", "price", "dividend"), colnames(prices))
@@ -796,7 +799,8 @@ meet_constraint.group_constraint <- function(constraint,
                                              minimize,
                                              amount,
                                              lot_size,
-                                             max_iter = 5) {
+                                             max_iter = 5,
+                                             ...) {
   checkmate::assert_class(portfolio, "portfolio")
   checkmate::assert_data_frame(prices)
   checkmate::assert_subset(c("symbol", "price", "dividend"), colnames(prices))
@@ -979,7 +983,8 @@ meet_constraint.performance_constraint <- function(constraint,
                                                    minimize,
                                                    amount,
                                                    lot_size,
-                                                   max_iter = 5) {
+                                                   max_iter = 5,
+                                                   ...) {
   checkmate::assert_class(portfolio, "portfolio")
   checkmate::assert_data_frame(prices)
   checkmate::assert_subset(c("symbol", "price", "dividend"), colnames(prices))

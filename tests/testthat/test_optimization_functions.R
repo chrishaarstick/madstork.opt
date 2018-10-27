@@ -10,35 +10,16 @@ library(checkmate)
 
 context("Optimization Functionality")
 
-#
-#
-# # Estimates params
-# yrs <- 10
-# .symbols <- c("SPY", "QQQ", "TLT", "GLD")
-# .grain <- "year"
-# .periods <- 1
-
-# Optimization params
-
 
 # Set Estimates Class
 e1 <- test_estimates
-# e1 <- estimates(symbols = .symbols,
-#                 start_date = Sys.Date() - years(yrs),
-#                 end_date = Sys.Date(),
-#                 grain = .grain,
-#                 periods = .periods) %>%
-#   add_sample_mu() %>%
-#   add_sample_sigma() %>%
-#   add_dividends()
 
 # Prices
-#prices <- get_current_prices(.symbols, dividends = TRUE)
 prices <- test_prices
 p <- prices %>% split(.$symbol) %>% map("price")
 
 
-# Set  params
+# Set params
 port_amount <- 100000
 trade_amount <- 2000
 .lot_size <- 1
@@ -73,7 +54,7 @@ test_that("Optimize improves return target", {
 
   # Optimize
   po_opt <- optimize(po,
-                     trade_pairs = .npairs,
+                     n_pairs = .npairs,
                      amount = trade_amount,
                      lot_size = .lot_size,
                      max_iter = .max_iters,
@@ -130,7 +111,7 @@ test_that("Improves Failed Symbol Constraints", {
 
   # Optimize
   po_opt <- optimize(po,
-                     trade_pairs = .npairs,
+                     n_pairs = .npairs,
                      amount = trade_amount,
                      lot_size = .lot_size,
                      max_iter = .max_iters,
@@ -155,51 +136,42 @@ test_that("Improves Failed Symbol Constraints", {
 })
 
 
-#
-# # Create Constraints
-# c2 <- constraints(symbols = e1$symbols) %>%
-#   add_symbol_constraint(min = .0, max = .5)
-#
-# po2 <- portfolio_optimization(p1, e1, c2, prices, target = "return")
-#
-# # Optimize
-# po2_opt <- madstork::optimize(po2, npairs = 4, amount = 2000, lot_size = 1,
-#                               max_iter = 25, max_runtime = 120,
-#                               improve_lag = 5, min_improve = .001)
-
-
 
 # Single Holding - Testing Estimate Symbol setdiff ------------------------
 
-# Create Portfolio
-p3 <- portfolio("new_port", cash=0) %>%
-  make_deposit(amount = 15000) %>%
-  make_buy(symbol = "TLT", quantity = 30, price = 100) %>%
-  update_market_value(prices)
-
-
-# Create Constraints
-c3 <- constraints(symbols = e1$symbols) %>%
-  add_cash_constraint(min = 0, max = .10) %>%
-  add_min_return(min = .12) %>%
-  add_min_yield(min = .015) %>%
-  add_symbol_constraint(min = .0, max = .5)
-
-
-# Create Optimization
-po3 <- portfolio_optimization(p3, e1, c3, prices, target = "sharpe")
-
-# Optimize
-po3_opt <- optimize(po3,
-                    trade_pairs = 4,
-                    amount = 1000,
-                    lot_size = 1,
-                    max_iter = 15,
-                    max_runtime = 180,
-                    improve_lag = 10,
-                    min_improve = .001,
-                    plot_iter = TRUE)
-
-
-
+test_that("Testing Estimate Symbol setdiff", {
+  
+  
+  # Create Portfolio
+  p3 <- portfolio("new_port", cash=0) %>%
+    make_deposit(amount = 15000) %>%
+    make_buy(symbol = "TLT", quantity = 30, price = 100) %>%
+    update_market_value(prices)
+  
+  
+  # Create Constraints
+  c3 <- constraints(symbols = e1$symbols) %>%
+    add_cash_constraint(min = 0, max = .10) %>%
+    add_min_return(min = .12) %>%
+    add_min_yield(min = .015) %>%
+    add_symbol_constraint(min = .0, max = .5)
+  
+  
+  # Create Optimization
+  po3 <- portfolio_optimization(p3, e1, c3, prices, target = "sharpe")
+  
+  # Optimize
+  po3_opt <- optimize(po3,
+                      n_pairs = .npairs,
+                      amount = trade_amount,
+                      lot_size = .lot_size,
+                      max_iter = .max_iters,
+                      max_runtime = .max_runtime,
+                      improve_lag = .improve_lag,
+                      min_improve = .001,
+                      plot_iter = FALSE)
+  
+  po3_opt_cc <- check_constraints(c3, po3_opt$optimal_portfolio, e1)
+  expect_true(all(po3_opt_cc$check))
+})
 

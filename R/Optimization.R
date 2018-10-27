@@ -82,7 +82,7 @@ portfolio_optimization <- function(portfolio,
 #' amount and lot_size
 #'
 #' @param pobj portfolio object
-#' @param symbol vector of holding symbols to filter sell tickets by
+#' @param symbols vector of holding symbols to filter sell tickets by
 #' @param amount trade amount
 #' @param lot_size minimum share lot size
 #' @param partial logical option to allow for partial trade tickets with an
@@ -91,7 +91,7 @@ portfolio_optimization <- function(portfolio,
 #' @return data.frame with possible sell trades
 #' @export
 get_sell_trades <- function(pobj,
-                            symbol,
+                            symbols,
                             amount,
                             lot_size = 1,
                             partial = TRUE) {
@@ -99,14 +99,14 @@ get_sell_trades <- function(pobj,
   checkmate::assert_number(amount, lower = 0)
   checkmate::assert_number(lot_size, lower = 0)
   checkmate::assert_flag(partial)
-  sym <- symbol
+  sym <- symbols
 
   holdings <- get_holdings_market_value(pobj) %>%
-    dplyr::filter(symbol == sym) %>%
+    dplyr::filter(symbol %in% sym) %>%
     dplyr::arrange(-unrealized_gain) %>%
     dplyr::select(id, symbol, quantity, price, market_value)
 
-  checkmate::assert_subset(symbol, holdings$symbol)
+  checkmate::assert_subset(symbols, holdings$symbol)
 
   sells <- data.frame()
   continue <- TRUE
@@ -274,6 +274,8 @@ get_buy_trades.character <- function(obj,
 #' @inheritParams portfolio_optimization
 #'
 #' @return trade pairs data.frame
+#' 
+#' @importFrom magrittr %>%
 #' @export
 trade_pairs <- function(portfolio, estimates, target){
   checkmate::assert_class(portfolio, "portfolio")
@@ -475,7 +477,7 @@ nbto <- function(pobj,
 #' Executes optimize routine on porfolio optimization object
 #'
 #' @param obj portfolio optimization object to optimize
-#' @param trade_pairs number of trade pairs consider for each optimization step
+#' @param n_pairs number of trade pairs consider for each optimization step
 #' @param amount trade amount
 #' @param lot_size minimum share lot size
 #' @param max_iter maximum number of iterations
@@ -489,7 +491,7 @@ nbto <- function(pobj,
 #' @return updated portfolio optimization object
 #' @export
 optimize <- function(obj,
-                     trade_pairs,
+                     n_pairs,
                      amount,
                      lot_size = 1,
                      max_iter = 10,
@@ -498,7 +500,7 @@ optimize <- function(obj,
                      min_improve = .001,
                      plot_iter = TRUE ) {
   checkmate::assert_class(obj, "portfolio_optimization")
-  checkmate::assert_number(trade_pairs,
+  checkmate::assert_number(n_pairs,
                            lower = 1,
                            upper = nrow(obj$trade_pairs))
   checkmate::assert_number(amount, lower = 0)
@@ -566,8 +568,8 @@ optimize <- function(obj,
     } else {
       tp_smpl <- tp_actives %>%
        # dplyr::top_n(min(trade_pairs, tp_nactives), wt = delta)
-        dplyr::mutate(delta = (delta - min(delta)) / max(delta)) %>%
-        dplyr::sample_n(min(trade_pairs, tp_nactives), weight = delta^3)
+        dplyr::mutate(delta = scales::rescale(delta, to = c(0.001, 1))) %>%
+        dplyr::sample_n(min(n_pairs, tp_nactives), weight = delta^3)
     }
 
     # Run NBTO

@@ -11,19 +11,11 @@ library(checkmate)
 context("Constriaints Class")
 
 
-# Create Estimates Class
-yrs <- 5
-syms <- c("SPY", "QQQ", "TLT", "GLD")
-e1 <- estimates(symbols = syms,
-                start_date = Sys.Date() - years(yrs),
-                end_date = Sys.Date(),
-                grain = "year",
-                periods = 1) %>%
-  add_sample_mu() %>%
-  add_sample_sigma()
+# Set Estimates Class
+e1 <- test_estimates
 
 # Prices
-prices <- get_current_prices(syms, dividends = TRUE)
+prices <- test_prices
 p <- prices %>% split(.$symbol) %>% map("price")
 
 # Create Portfolio
