@@ -22,7 +22,7 @@ t1 <- Sys.time()
 lib_path <- .libPaths()[1]
 
 # R packages
-packages <- c("a2munge", "a2modeler", "a2charter", "dplyr", "tidyr", "readxl", "tibble", "purrr", "ggplot2", "stringr", "lubridate", "sparklyr", "DT", "rlang")
+packages <- c("a2munge", "a2modeler", "a2charter", "dplyr", "tidyr", "readxl", "tibble", "purrr", "ggplot2", "stringr", "lubridate", "sparklyr", "DT", "rlang", "here")
 
 
 ```
@@ -61,14 +61,14 @@ spark_config_args <- list(spark.memory.fraction = 0.9)
 # Get Shiller Market Data
 dataset_name <- "Shiller CAPE"
 url <- "http://www.econ.yale.edu/~shiller/data/ie_data.xls"
-destfile <- paste(c("Shiller-", as.character(Sys.Date()), ".xls"), collapse = "")
+destfile <- here("data", "raw", paste(c("Shiller-", as.character(Sys.Date()), ".xls"), collapse = ""))
 download.file(url, destfile, mode = "wb")
 raw <- readxl::read_excel(path = destfile, 
                          sheet = "Data",
                          skip = 7,
                          col_names = TRUE,
                          col_types = c("text", rep("numeric", 12)))
-# file.remove(destfile)
+#file.remove(destfile)
 ```
 
 
@@ -224,7 +224,7 @@ r1 <- sdf %>%
             version = "1.0.0",
             desc = "Regression model to predict 5 year market return using Shiller CAPE metric",
             scientist = "Haarstick",
-            execution_strategy = "sequential",
+            execution_strategy = "multisession",
             refit = TRUE,
             save_submodels = TRUE,
             seed = 319) %>% 
@@ -251,14 +251,14 @@ r1 <- sdf %>%
                              num_trees = c(50, 250)),
             uid = "randomForest",
             desc = "Random Forest with minimal tuning") %>%
-  # add_model(.,
-  #           method = "ml_gbt_regressor",
-  #           pipe = feature_pipe,
-  #           param_map = list(max_iter = c(50, 100, 200),
-  #                            max_depth = c(2, 5),
-  #                            subsampling_rate = c(.75, 1)),
-  #           uid = "gbt",
-  #           desc = "GBT with moderate tuning") %>%
+  add_model(.,
+            method = "ml_gbt_regressor",
+            pipe = feature_pipe,
+            param_map = list(max_iter = c(50, 100, 200),
+                             max_depth = c(2, 5),
+                             subsampling_rate = c(.75, 1)),
+            uid = "gbt",
+            desc = "GBT with moderate tuning") %>%
   train_models() %>% 
   set_final_model("best", reevaluate = TRUE, refit = FALSE)
 
@@ -558,6 +558,14 @@ current_pred %>%
 ```
 
 
+```{r predictions-write, eval=TRUE, echo=FALSE}
+
+file_name <- paste(c("market-forecast-", as.character(Sys.Date()), ".csv"), collapse = "")
+current_pred_path <- here("data", "predictions", file_name)
+write.csv(current_pred, current_pred_path, row.names = FALSE)
+```
+
+* Current predictions written to file here: _`r print(current_pred_path)`_
 
 ## Configuration
 
