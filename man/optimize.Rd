@@ -4,14 +4,14 @@
 \alias{optimize}
 \title{Optimize Portfolio Optimization}
 \usage{
-optimize(obj, trade_pairs, amount, lot_size = 1, max_iter = 10,
+optimize(obj, n_pairs, amount, lot_size = 1, max_iter = 10,
   max_runtime = 300, improve_lag = 2, min_improve = 0.001,
   plot_iter = TRUE)
 }
 \arguments{
 \item{obj}{portfolio optimization object to optimize}
 
-\item{trade_pairs}{number of trade pairs consider for each optimization step}
+\item{n_pairs}{number of trade pairs consider for each optimization step}
 
 \item{amount}{trade amount}
 

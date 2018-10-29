@@ -185,7 +185,6 @@ constraint <- function(type,
 #' @param constraint constraint object
 #' @param portfolio portfolio object
 #' @param holdings portfolio holdings
-#' @param stats portfolio statistics
 #' @param ... additional parameters. not currently implemented
 #'
 #' @return data.frame with summary of constraint check
@@ -209,6 +208,7 @@ check_constraint <- function(constraint,
 #' @param estimates estimates object
 #' @param prices current symbol prices
 #' @param trade_pairs possible trade pairs
+#' @param minimize logical option to minimize target objective
 #' @param target optimization target
 #' @param amount trade amount for nbto
 #' @param lot_size trade lot minimum size
@@ -295,15 +295,15 @@ add_symbol_constraint <- function(constraints,
 
 #' @export
 #' @rdname print
-print.symbol_constraint <- function(constraint) {
+print.symbol_constraint <- function(x, ...) {
   cat(
     "Symbol Constraint:",
     paste0(
-      constraint$args,
+      xt$args,
       " min share = ",
-      constraint$min,
+      xt$min,
       ", max share = ",
-      constraint$max
+      x$max
     )
   )
 }
@@ -311,7 +311,11 @@ print.symbol_constraint <- function(constraint) {
 
 #' @export
 #' @rdname check_constraint
-check_constraint.symbol_constraint <- function(constraint, holdings, ...) {
+check_constraint.symbol_constraint <- function(constraint,
+                                               portfolio = NULL,
+                                               holdings,
+                                               stats = NULL,
+                                               ...) {
   checkmate::assert_subset(c("symbol", "portfolio_share"), colnames(holdings))
 
   share <- holdings %>%
@@ -355,7 +359,7 @@ meet_constraint.symbol_constraint <- function(constraint,
 
   # Check constraint
   port <- portfolio
-  cc <- check_constraint(constraint, port$holdings_market_value)
+  cc <- check_constraint(constraint, holdings = port$holdings_market_value)
   check <- cc$check
   iter <- 0
   while(!check) {
@@ -394,7 +398,7 @@ meet_constraint.symbol_constraint <- function(constraint,
       lot_size = lot_size
     )$portfolio
 
-    cc <- check_constraint(constraint, port$holdings_market_value)
+    cc <- check_constraint(constraint, holdings = port$holdings_market_value)
     iter <- iter + 1
     check <- (cc$check | iter >= max_iter)
   }
@@ -447,14 +451,14 @@ add_cash_constraint <- function(constraints,
 
 #' @export
 #' @rdname print
-print.cash_constraint <- function(constraint) {
+print.cash_constraint <- function(x, ...) {
   cat(
     "Cash Constraint:",
     paste0(
       " min share = ",
-      constraint$min,
+      x$min,
       ", max share = ",
-      constraint$max
+      x$max
     )
   )
 }
@@ -462,7 +466,11 @@ print.cash_constraint <- function(constraint) {
 
 #' @export
 #' @rdname check_constraint
-check_constraint.cash_constraint <- function(constraint, portfolio, ...) {
+check_constraint.cash_constraint <- function(constraint, 
+                                             portfolio,
+                                             holdings = NULL,
+                                             stats = NULL,
+                                             ...) {
   checkmate::assert_class(portfolio, "portfolio")
   share <- get_market_value(portfolio) %>%
     dplyr::filter(last_updated == max(last_updated)) %>%
@@ -505,7 +513,7 @@ meet_constraint.cash_constraint <- function(constraint,
 
   # Check constraint
   port <- portfolio
-  cc <- check_constraint(constraint, port)
+  cc <- check_constraint(constraint, portfolio = port)
   check <- cc$check
   iter <- 0
   while (!check) {
@@ -540,7 +548,7 @@ meet_constraint.cash_constraint <- function(constraint,
       lot_size = lot_size
     )$portfolio
 
-    cc <- check_constraint(constraint, port)
+    cc <- check_constraint(constraint, portfolio = port)
     iter <- iter + 1
     check <- (cc$check | iter >= max_iter)
   }
@@ -563,8 +571,7 @@ meet_constraint.cash_constraint <- function(constraint,
 #'
 #' @return object of class cardinality_constraint
 #' @export
-cardinality_constraint <- function(min,
-                                   max) {
+cardinality_constraint <- function(min, max) {
   checkmate::assert_number(min, lower = 0.0)
   checkmate::assert_number(max, lower = 0.0)
 
@@ -598,14 +605,14 @@ add_cardinality_constraint <- function(constraints,
 
 #' @export
 #' @rdname print
-print.cardinality_constraint <- function(constraint) {
+print.cardinality_constraint <- function(x, ...) {
   cat(
     "Cardinality Constraint:",
     paste0(
       "min symbols = ",
-      constraint$min,
+      x$min,
       ", max symbols = ",
-      constraint$max
+      x$max
     )
   )
 }
@@ -613,7 +620,11 @@ print.cardinality_constraint <- function(constraint) {
 
 #' @export
 #' @rdname check_constraint
-check_constraint.cardinality_constraint <- function(constraint, holdings, ...) {
+check_constraint.cardinality_constraint <- function(constraint, 
+                                                    portfolio = NULL,
+                                                    holdings,
+                                                    stats = NULL,
+                                                    ...) {
   checkmate::assert_subset(c("symbol", "portfolio_share"), colnames(holdings))
   n <- holdings %>%
     dplyr::filter(portfolio_share > 0) %>%
@@ -654,7 +665,7 @@ meet_constraint.cardinality_constraint <- function(constraint,
   # Check constraint
   port <- portfolio
   holdings <- get_symbol_estimates_share(port, estimates)
-  cc <- check_constraint(constraint, holdings)
+  cc <- check_constraint(constraint, holdings = holdings)
   check <- cc$check
   iter <- 0
   while(!check) {
@@ -689,7 +700,7 @@ meet_constraint.cardinality_constraint <- function(constraint,
     )$portfolio
 
     holdings <- get_symbol_estimates_share(port, estimates)
-    cc <- check_constraint(constraint, holdings)
+    cc <- check_constraint(constraint, holdings = holdings)
     iter <- iter + 1
     check <- (cc$check | iter >= max_iter)
   }
@@ -752,15 +763,15 @@ add_group_constraint <- function(constraints,
 
 #' @export
 #' @rdname print
-print.group_constraint <- function(constraint) {
+print.group_constraint <- function(x, ...) {
   cat(
     "Group Constraint:",
     paste0(
-      "[", paste(constraint$args, collapse=", "), "]",
+      "[", paste(x$args, collapse=", "), "]",
       " min share = ",
-      constraint$min,
+      x$min,
       ", max share = ",
-      constraint$max
+      x$max
     )
   )
 }
@@ -768,7 +779,11 @@ print.group_constraint <- function(constraint) {
 
 #' @export
 #' @rdname check_constraint
-check_constraint.group_constraint <- function(constraint, holdings, ...) {
+check_constraint.group_constraint <- function(constraint, 
+                                              portfolio = NULL,
+                                              holdings,
+                                              stats = NULL,
+                                              ...) {
   checkmate::assert_subset(c("symbol", "portfolio_share"), colnames(holdings))
   share <- holdings %>%
     dplyr::filter(symbol %in% constraint$args) %>%
@@ -810,7 +825,7 @@ meet_constraint.group_constraint <- function(constraint,
 
   # Check constraint
   port <- portfolio
-  cc <- check_constraint(constraint, port$holdings_market_value)
+  cc <- check_constraint(constraint, holdings = port$holdings_market_value)
   check <- cc$check
   iter <- 0
   while(! check) {
@@ -844,7 +859,7 @@ meet_constraint.group_constraint <- function(constraint,
       lot_size = lot_size
     )$portfolio
 
-    cc <- check_constraint(constraint, port$holdings_market_value)
+    cc <- check_constraint(constraint, holdings = port$holdings_market_value)
     iter <- iter + 1
     check <- (cc$check | iter >= max_iter)
   }
@@ -936,23 +951,28 @@ add_min_yield <- function(constraints,
 
 #' @export
 #' @rdname print
-print.performance_constraint <- function(constraint) {
+print.performance_constraint <- function(x, ...) {
   cat(
     "Performance Constraint:",
     paste0(
-      constraint$args,
+      x$args,
       " min = ",
-      constraint$min,
+      x$min,
       ", max = ",
-      constraint$max
+      x$max
     )
   )
 }
 
 
+#' @param stats portfolio statistics
 #' @export
 #' @rdname check_constraint
-check_constraint.performance_constraint <- function(constraint, stats, ...) {
+check_constraint.performance_constraint <- function(constraint, 
+                                                    portfolio = NULL,
+                                                    holdings = NULL,
+                                                    stats,
+                                                    ...) {
   checkmate::assert_subset(c("mu", "sd", "sharpe", "yield"), colnames(stats))
   checkmate::assert_choice(stats$type, "portfolio")
   stat <- stats[[constraint$args]]
@@ -994,7 +1014,8 @@ meet_constraint.performance_constraint <- function(constraint,
 
   # Check constraint
   port <- portfolio
-  cc <- check_constraint(constraint, get_estimated_port_stats(port, estimates, TRUE))
+  stats <- get_estimated_port_stats(port, estimates, TRUE)
+  cc <- check_constraint(constraint, stats = stats)
   check <- cc$check
   iter <- 0
   target <- as.character(cc$args)
@@ -1014,7 +1035,8 @@ meet_constraint.performance_constraint <- function(constraint,
       lot_size = lot_size
     )$portfolio
 
-    cc <- check_constraint(constraint, get_estimated_port_stats(port, estimates, TRUE))
+    stats <- get_estimated_port_stats(port, estimates, TRUE)
+    cc <- check_constraint(constraint, stats = stats)
     iter <- iter + 1
     check <- (cc$check | iter >= max_iter)
   }

@@ -30,6 +30,9 @@ provided}
 
 \item{include_port}{logical flag to include the portfolio object provided in
 the canidate list. Default is FALSE.}
+
+\item{update_trade_pairs}{logical option to update the trade pairs after
+optimize step. Default is FALSE}
 }
 \description{
 Function to select optimal next best trade given the portfolio, estimates,

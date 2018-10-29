@@ -3,7 +3,7 @@ Title: MadStork Portfolio Optimization
 Version: 0.1.0
 Authors@R: person("Chris", "Haarstick", email = "chrishaarstick@gmail.com", role = c("aut", "cre"))
 Description: Functionality to optimize investment portfolios.   
-Depends: R (>= 3.5.1)
+Depends: R (>= 3.5.0)
 License: file LICENSE
 Encoding: UTF-8
 LazyData: true

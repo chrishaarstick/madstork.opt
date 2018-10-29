@@ -25,6 +25,8 @@ get_buy_trades(obj, symbols, amount, lot_size)
 \arguments{
 \item{obj}{object to use for buy trades}
 
+\item{symbols}{vector of holding symbols to filter sell tickets by}
+
 \item{amount}{trade amount}
 
 \item{lot_size}{minimum share lot size}

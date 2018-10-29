@@ -4,12 +4,12 @@
 \alias{get_sell_trades}
 \title{Get Sell Trades}
 \usage{
-get_sell_trades(pobj, symbol, amount, lot_size = 1, partial = TRUE)
+get_sell_trades(pobj, symbols, amount, lot_size = 1, partial = TRUE)
 }
 \arguments{
 \item{pobj}{portfolio object}
 
-\item{symbol}{vector of holding symbols to filter sell tickets by}
+\item{symbols}{vector of holding symbols to filter sell tickets by}
 
 \item{amount}{trade amount}
 

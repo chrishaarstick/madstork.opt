@@ -435,7 +435,7 @@ get_estimated_port_stats <- function(pobj, eobj, port_only = FALSE) {
 #' values
 #'
 #' @param pobj portfolio object
-#' @param eboj estimates object
+#' @param eobj estimates object
 #'
 #' @return data.frame with estimated portfolio values
 #' @export
@@ -469,7 +469,7 @@ get_estimated_port_values <- function(pobj, eobj) {
 #' Aggregates holdings portfolio share for all Estimate Symbols
 #'
 #' @param pobj portfolio object
-#' @param eboj estimates object
+#' @param eobj estimates object
 #'
 #' @return data.frame with portfolio share for all estimates symbol
 #' @export

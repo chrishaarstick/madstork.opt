@@ -14,23 +14,23 @@ meet_constraint(constraint, portfolio, constraints, estimates, prices,
 
 \method{meet_constraint}{symbol_constraint}(constraint, portfolio,
   constraints, estimates, prices, trade_pairs, target, minimize, amount,
-  lot_size, max_iter = 5)
+  lot_size, max_iter = 5, ...)
 
 \method{meet_constraint}{cash_constraint}(constraint, portfolio,
   constraints, estimates, prices, trade_pairs, target, minimize, amount,
-  lot_size, max_iter = 5)
+  lot_size, max_iter = 5, ...)
 
 \method{meet_constraint}{cardinality_constraint}(constraint, portfolio,
   constraints, estimates, prices, trade_pairs, target, minimize, amount,
-  lot_size, max_iter = 5)
+  lot_size, max_iter = 5, ...)
 
 \method{meet_constraint}{group_constraint}(constraint, portfolio,
   constraints, estimates, prices, trade_pairs, target, minimize, amount,
-  lot_size, max_iter = 5)
+  lot_size, max_iter = 5, ...)
 
 \method{meet_constraint}{performance_constraint}(constraint, portfolio,
-  constraints, estimates, prices, trade_pairs = NULL, target, minimize,
-  amount, lot_size, max_iter = 5)
+  constraints, estimates, prices, trade_pairs, target, minimize, amount,
+  lot_size, max_iter = 5, ...)
 }
 \arguments{
 \item{constraint}{constraint object}
@@ -44,6 +44,8 @@ meet_constraint(constraint, portfolio, constraints, estimates, prices,
 \item{prices}{current symbol prices}
 
 \item{trade_pairs}{possible trade pairs}
+
+\item{minimize}{logical option to minimize target objective}
 
 \item{target}{optimization target}
 

@@ -9,6 +9,7 @@
 #'
 #' @param portfolio portfolio object
 #' @param estimates estimates object
+#' @param constraints constraints object
 #' @param prices current symbol prices
 #' @param target target objective
 #' @param desc optional meta-data description input
@@ -386,6 +387,9 @@ execute_trade_pair <- function(buy,
 #' @param lot_size lot size for trades
 #' @param include_port logical flag to include the portfolio object provided in
 #'   the canidate list. Default is FALSE.
+#' @param update_trade_pairs logical option to update the trade pairs after
+#'   optimize step. Default is FALSE
+#'
 #' @export
 nbto <- function(pobj,
                  cobj,
@@ -419,7 +423,7 @@ nbto <- function(pobj,
 
   # Check Canidates Constraints
   port_evals <- port_canidates %>%
-    purrr::map(~ check_constraints(cobj, ., eobj)) %>%
+    purrr::map(~ check_constraints(cobj, portfolio = ., estimates = eobj)) %>%
     purrr::map_lgl(~ ifelse(nrow(.) == 0, TRUE, all(.$check)))
 
   # Only select canidates that meet constraints

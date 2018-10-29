@@ -12,6 +12,8 @@ portfolio_optimization(portfolio, estimates, constraints, prices = NULL,
 
 \item{estimates}{estimates object}
 
+\item{constraints}{constraints object}
+
 \item{prices}{current symbol prices}
 
 \item{target}{target objective}

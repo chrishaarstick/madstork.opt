@@ -12,16 +12,20 @@
 check_constraint(constraint, portfolio = NULL, holdings = NULL,
   stats = NULL, ...)
 
-\method{check_constraint}{symbol_constraint}(constraint, holdings, ...)
+\method{check_constraint}{symbol_constraint}(constraint,
+  portfolio = NULL, holdings, stats = NULL, ...)
 
-\method{check_constraint}{cash_constraint}(constraint, portfolio, ...)
+\method{check_constraint}{cash_constraint}(constraint, portfolio,
+  holdings = NULL, stats = NULL, ...)
 
-\method{check_constraint}{cardinality_constraint}(constraint, holdings,
-  ...)
+\method{check_constraint}{cardinality_constraint}(constraint,
+  portfolio = NULL, holdings, stats = NULL, ...)
 
-\method{check_constraint}{group_constraint}(constraint, holdings, ...)
+\method{check_constraint}{group_constraint}(constraint, portfolio = NULL,
+  holdings, stats = NULL, ...)
 
-\method{check_constraint}{performance_constraint}(constraint, stats, ...)
+\method{check_constraint}{performance_constraint}(constraint,
+  portfolio = NULL, holdings = NULL, stats, ...)
 }
 \arguments{
 \item{constraint}{constraint object}

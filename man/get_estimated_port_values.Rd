@@ -9,7 +9,7 @@ get_estimated_port_values(pobj, eobj)
 \arguments{
 \item{pobj}{portfolio object}
 
-\item{eboj}{estimates object}
+\item{eobj}{estimates object}
 }
 \value{
 data.frame with estimated portfolio values

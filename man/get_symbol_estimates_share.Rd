@@ -9,7 +9,7 @@ get_symbol_estimates_share(pobj, eobj)
 \arguments{
 \item{pobj}{portfolio object}
 
-\item{eboj}{estimates object}
+\item{eobj}{estimates object}
 }
 \value{
 data.frame with portfolio share for all estimates symbol
