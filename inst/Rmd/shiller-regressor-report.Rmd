@@ -61,7 +61,8 @@ spark_config_args <- list(spark.memory.fraction = 0.9)
 # Get Shiller Market Data
 dataset_name <- "Shiller CAPE"
 url <- "http://www.econ.yale.edu/~shiller/data/ie_data.xls"
-destfile <- here("data", "raw", paste(c("Shiller-", as.character(Sys.Date()), ".xls"), collapse = ""))
+dataset_name <- paste0("Shiller-", as.character(Sys.Date()))
+destfile <- here("data", "raw", paste0(dataset_name, ".xls"))
 download.file(url, destfile, mode = "wb")
 raw <- readxl::read_excel(path = destfile, 
                          sheet = "Data",
@@ -139,8 +140,8 @@ df <- clean %>%
                 div_yield = dividend / price,
                 div_yield_real = div_yield - inf_1yr,
                 gs10_real = gs10 - inf_1yr,
-                gs10_real_d_1yr = gs10_real / lag(gs10_real, 12) - 1,
-                gs10_real_d_5yr = gs10_real / lag(gs10_real, 60) - 1,
+                gs10_d_1yr = gs10 / lag(gs10, 12) - 1,
+                gs10_d_5yr = gs10 / lag(gs10, 60) - 1,
                 cape_d_1yr = cape / lag(cape, 12) - 1,
                 cape_d_5yr = cape / lag(cape, 60) - 1,
                 cape_d_10yr = cape / lag(cape, 120) - 1)
@@ -198,7 +199,7 @@ feature_pipe <- pipeline(expr = function(df) {
   df <- df %>% 
     dplyr::select(ftr_ret_1yr, ret_1yr, ret_2yr, ret_5yr, ret_10yr,
                   cape, cape_d_1yr, cape_d_5yr, cape_d_10yr, 
-                  gs10_real, gs10_real_d_1yr, gs10_real_d_5yr, div_yield_real)  %>% 
+                  gs10_real, gs10_d_1yr, gs10_d_5yr, div_yield_real)  %>% 
     mutate(cape_cross_d_1yr = cape * cape_d_1yr,
            cape_cross_d_10yr = cape * cape_d_10yr,
            cape_cross_ret_1yr = cape * ret_1yr,
@@ -219,12 +220,12 @@ desc = "test-feature pipe")
 r1 <- sdf %>% 
   regressor(.,
             "ftr_ret_1yr",
-            name = "mkt-shiller-5yr-forecast",
+            name = "mkt-shiller-1yr-forecast",
             uid = sparklyr::random_string("regressor"),
             version = "1.0.0",
-            desc = "Regression model to predict 5 year market return using Shiller CAPE metric",
+            desc = "Regression model to predict 1 year market return using Shiller CAPE metric",
             scientist = "Haarstick",
-            execution_strategy = "multisession",
+            execution_strategy = "sequential",
             refit = TRUE,
             save_submodels = TRUE,
             seed = 319) %>% 
@@ -254,13 +255,13 @@ r1 <- sdf %>%
   add_model(.,
             method = "ml_gbt_regressor",
             pipe = feature_pipe,
-            param_map = list(max_iter = c(50, 100, 200),
-                             max_depth = c(2, 5),
-                             subsampling_rate = c(.75, 1)),
+            param_map = list(max_iter = c(25, 50),
+                             max_depth = c(2, 5, 8),
+                             subsampling_rate = c(1)),
             uid = "gbt",
             desc = "GBT with moderate tuning") %>%
   train_models() %>% 
-  set_final_model("best", reevaluate = TRUE, refit = FALSE)
+  set_final_model("best", reevaluate = TRUE, refit = TRUE)
 
 ```
 
@@ -272,20 +273,19 @@ total <- bind_rows(train, test)
 
 # Apply model
 r1_preds <- total %>% 
+  mutate(!!sym(r1$target) := 0) %>% 
   copy_to(sc, ., "df", overwrite = TRUE) %>% 
   predict(r1, .) 
 
 # Predictions
 preds <- r1_preds$predictions %>% 
   collect() %>% 
-  bind_cols(total %>%
-              select(date)) %>% 
-  filter(date %in% test$date) %>% 
+  bind_cols(select(test,date)) %>% 
   select(date, predicted)
 
 # Current Forecast
 current_pred <- preds %>% 
-  tail(1) %>% 
+  filter(date == max(date)) %>% 
   mutate(date_made = Sys.Date(),
          periods = 1,
          units = "year",
@@ -296,7 +296,7 @@ current_pred <- preds %>%
 
 
 
-```{r execution, eval=TRUE, ref.label=c('r-config', 'r-setup', 'spark-config', 'spark-setup',  'data-import', 'data-prep', 'data-transform', 'data-split','spark-import', 'feature-pipeline', 'regressor', 'predicted')}
+```{r execution, eval=TRUE, ref.label=c('r-config', 'r-setup', 'spark-config', 'spark-setup',  'data-import', 'data-prep', 'data-transform', 'data-split','spark-import', 'feature-pipeline', 'regressor', 'predictions')}
 
 ```
 
@@ -318,8 +318,8 @@ cat("###", "Input Data:", dataset_name, "\n")
 
 ```
 
-* Location: __`r dataset_path`__
-* Type: __`r dataset_type`__
+* Location: __`r destfile`__
+* Type: __xls__
 
 
 #### Sample Records
@@ -368,7 +368,7 @@ total %>%
   gather(key = "variable", value = "value", -index, -date, -!!sym(r1$target)) %>%
   gg_line_chart("date", "value",
                 facet_formula = "~variable",
-                facet_args = list(scales = "free"))
+                facet_args = list(scales = "free", ncol = 3))
 ```
 
 

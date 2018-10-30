@@ -1,0 +1,605 @@
+---
+title: "MadStork - Security Forecast Template"
+author: "Haarstick"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document:
+    toc: true
+    theme: united
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, error = TRUE, eval=FALSE,
+                      warning = FALSE, message = FALSE,
+                      fig.align = "center", fig.width = 10, fig.height = 5)
+t1 <- Sys.time()
+```
+
+
+```{r r-config}
+
+# Library Path
+lib_path <- .libPaths()[1]
+
+# R packages
+packages <- c("a2munge", "a2modeler", "a2charter", "dplyr", "tidyr", "readxl", "tibble", "purrr", "ggplot2", "forcats", "stringr", "lubridate", "sparklyr", "rlang", "madstork", "madstork.opt")
+
+
+```
+
+
+```{r r-setup}
+
+# Load Libraries
+for(pck in packages) library(pck, lib.loc = lib_path, character.only = TRUE)
+
+```
+
+
+```{r spark-config}
+
+## Spark Configuration Parameters
+
+# Create Spark Connection
+spark <- TRUE
+
+# Spark Master
+spark_master <- "local"
+
+# Spark Version
+spark_version <- "2.3.0"
+
+# Additional Spark Configuration Settings. Add configuration with named element
+# in list
+spark_config_args <- list(spark.memory.fraction = 0.9)
+
+```
+
+
+```{r portfolio-config}
+
+# Path to MadStork Portfolio Object
+portfolio_path <- "C:/Users/user/Dropbox/MadStork/Accounts/personal_morganstanley/personal-morganstanley.RData"
+```
+
+
+```{r estimates-config}
+
+## Configure estimates
+
+# Set symbols - will create union with portfolio holding symbols
+est_symbols <- c()
+
+# Set grain
+est_grain <- "year"
+
+# Set Periods 
+est_periods <- 1
+
+# Set Horizon
+est_horizon <- 10
+
+```
+
+
+```{r prediction-config}
+
+# Path to Market Prediction
+mkt_prediction_path <- "C:/Users/user/Dropbox/MadStork/market-forecast/data/predictions/market-forecast-2018-10-29.csv"
+
+# Market Symbol
+mkt_symbol <- "SPY"
+```
+
+
+```{r portfolio}
+
+# Load portfolio object
+port <- load_portfolio(portfolio_path)
+
+```
+
+
+
+```{r estimates}
+
+# Get all symbols to estimate
+symbols <- union(port$holdings$symbol, c(est_symbols, mkt_symbol))
+
+# Define Start and End date
+#est_end_date <- today()
+est_end_date <- floor_date(today(), unit = "months") - days(1)
+period_fun <- match.fun(paste0(est_grain, "s"))
+est_start_date <- est_end_date - period_fun(est_horizon) + days(1)
+
+
+# Create Estimates Class
+est <- estimates(symbols    = symbols,
+                 start_date = est_start_date,
+                 end_date   = est_end_date,
+                 grain      = est_grain,
+                 periods    = est_periods) %>%
+  add_sample_mu() %>%
+  add_sample_sigma() %>%
+  add_dividends()
+
+```
+
+
+```{r data-prep}
+
+# Create Training dataset
+df <- est$returns %>% 
+  filter(symbol == mkt_symbol) %>% 
+  spread(symbol, return) %>% 
+  inner_join(
+    est$returns %>% 
+      filter(symbol != mkt_symbol),
+    by = "date")
+```
+
+
+```{r spark-setup, eval = FALSE}
+
+# If Spark Option True, create connection
+if(spark) {
+  
+  conf <- modifyList(spark_config(), spark_config_args)
+  sc <- spark_connect(master = spark_master,
+                      version = spark_version,
+                      config = conf)
+}
+```
+
+
+```{r spark-import}
+
+# import train data into spark
+sdf <- df %>% 
+  select(-date) %>% 
+  dplyr::copy_to(sc, ., "train", overwrite = TRUE)
+```
+
+
+
+```{r feature-pipeline}
+
+# Feature Pipeline
+feature_pipe <- pipeline(expr = function(df) {
+  
+  syms <- distinct(df, symbol) %>% 
+    collect() %>% 
+    pull(symbol)
+  
+  select(df, return, SPY, symbol) %>% 
+    ft_string_indexer("symbol", "sym_index") %>%
+    ft_one_hot_encoder("sym_index", "sym_encode", drop_last =FALSE) %>%
+    sdf_separate_column("sym_encode", into = syms) %>%
+    select(-sym_index, -sym_encode, -symbol, -!!sym(syms[length(syms)]))
+},
+uid  = "Feature-Pipe",
+desc = "hot encoding feature pipe")
+
+```
+
+
+
+
+```{r interaction-pipeline}
+
+# Interaction Pipeline
+interact_pipe <- pipeline(expr = function(df) {
+  
+  syms <- distinct(df, symbol) %>% 
+    collect() %>% 
+    pull(symbol)
+  
+  df <- select(df, return, SPY, symbol) %>% 
+    ft_string_indexer("symbol", "sym_index") %>%
+    ft_one_hot_encoder("sym_index", "sym_encode", drop_last =FALSE) %>%
+    sdf_separate_column("sym_encode", into = syms) %>%
+    select(-sym_index, -sym_encode, -symbol, -!!sym(syms[length(syms)]))
+  
+  for(sym in syms[-length(syms)]) {
+    df <- df %>% 
+      ft_interaction(c("SPY", sym), paste0(sym, "_intr")) %>%
+      sdf_separate_column(paste0(sym, "_intr"), random_string(sym)) %>% 
+      select(-!!sym(paste0(sym, "_intr")))
+  }
+  
+  select(df, -SPY)
+},
+uid  = "Interaction-Pipe",
+desc = "hot encoding with interactions feature pipe")
+
+```
+
+
+```{r regressor}
+
+# Create Regressor
+r1 <- sdf %>% 
+  regressor(.,
+            "return",
+            name = "security-forecasts",
+            uid = sparklyr::random_string("regressor"),
+            version = "1.0.0",
+            desc = "Regression model to predict 1 year return for securities using sp500 market as predictor",
+            scientist = "Haarstick",
+            execution_strategy = "sequential",
+            refit = TRUE,
+            save_submodels = TRUE,
+            seed = 319) %>% 
+  set_measure(RMSE) %>% 
+  add_cross_validation_samples(folds = 2, test_holdout_prct = .1) %>% 
+  add_model(., 
+            method = "ml_linear_regression",
+            pipe = feature_pipe,
+            param_map = list(standardization = FALSE),
+            uid = "baseline",
+            desc = "Baseline Model") %>% 
+  add_model(.,
+            method = "ml_linear_regression",
+            pipe = feature_pipe,
+            param_map = list(standardization = FALSE,
+                             elastic_net_param = 1,
+                             reg_param = c(0.05, 0.01, 0.001)),
+            uid = "lasso",
+            desc = "Lasso regression model") %>%
+  add_model(.,
+            method = "ml_random_forest_regressor",
+            pipe = feature_pipe,
+            param_map = list(subsampling_rate = c(.75),
+                             num_trees = c(50, 250)),
+            uid = "randomForest",
+            desc = "Random Forest with minimal tuning") %>%
+  add_model(.,
+            method = "ml_gbt_regressor",
+            pipe = feature_pipe,
+            param_map = list(max_iter = c(25, 50),
+                             max_depth = c(2, 5),
+                             subsampling_rate = c(1)),
+            uid = "gbt",
+            desc = "GBT with moderate tuning") %>%
+  train_models() %>% 
+  set_final_model("best", reevaluate = TRUE, refit = TRUE)
+
+```
+
+
+```{r predictions}
+
+# load market predictions
+mkt_preds <- read.csv(mkt_prediction_path)
+
+# Create test dataset
+test_df <- tibble(return = 0, 
+                  !!sym(mkt_symbol) := mkt_preds$predicted,
+                  symbol = setdiff(symbols, mkt_symbol))
+
+# Apply model
+r1_preds <- test_df %>% 
+  copy_to(sc, ., "test", overwrite = TRUE) %>% 
+  predict(r1, .) 
+
+
+# Predictions
+preds <- r1_preds$predictions %>% 
+  collect() %>% 
+  bind_cols(select(test_df, symbol)) %>% 
+  select(symbol, predicted)
+
+```
+
+
+```{r execution, eval=TRUE, ref.label=c('r-config', 'r-setup', 'spark-config', 'spark-setup', 'portfolio-config', 'estimates-config', 'prediction-config', 'estimates', 'data-prep', 'data-transform', 'spark-import', 'feature-pipeline', 'regressor', 'predictions')}
+
+```
+
+
+```{r regressor-print, eval=TRUE, results='asis'}
+cat("##", r1$name, "Regressor", "\n")
+
+```
+
+* uid: __`r r1$uid` __ 
+* Version: __`r r1$version`__  
+* Created on: __`r as.character(r1$created_on)`__ 
+* Created by: __`r r1$scientist`__
+* Description: _`r r1$desc`_  
+
+
+```{r data-print, eval=TRUE, results='asis'}
+dataset_name <- "Security Forecasts"
+cat("###", "Input Data:", dataset_name, "\n")
+
+```
+
+
+#### Sample Records
+
+
+```{r sample-records, eval=TRUE}
+
+# Datatable with sample records
+r1$data %>% 
+  collecter(sample = TRUE, method = "head", size = 100) %>% 
+  DT::datatable(.,
+                options = list(scrollX = TRUE),
+                caption = paste(dataset_name, "Sample Records")) %>% 
+  DT::formatRound(colnames(r1$data), digits=3)
+```
+
+
+```{r target-print, eval=TRUE, results='asis'}
+cat("###", "Target:", r1$target,"\n")
+
+```
+
+
+```{r target-summary, eval=TRUE, fig.height=8}
+
+r1$data %>%
+  a2munge::collecter(sample = FALSE) %>% 
+  a2charter::gg_boxplot(., 
+                        "symbol",
+                        r1$target,
+                        sort = TRUE,
+                        desc = TRUE,
+                        coord = "flip",
+                        title = paste(paste0(r1$name, ":"), r1$target)) +
+  scale_y_continuous(label = scales::percent)
+
+r1$data %>%
+  a2munge::collecter(sample = FALSE) %>% 
+  dplyr::group_by(symbol) %>% 
+  dplyr::summarise_at(r1$target, funs(min, mean, sd, max)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(mean) %>% 
+  DT::datatable(., 
+                caption = paste(paste0(r1$name, ":"), r1$target, "Summary Stats")) %>% 
+  DT::formatPercentage(2:5, digits = 1)
+```
+
+
+### Features
+
+```{r feature-plot-1, eval=TRUE, fig.height=8}
+
+df %>% 
+  arrange(symbol, date) %>% 
+  group_by(symbol) %>% 
+  mutate(cum_return = cumprod(return + 1) - 1) %>%
+  ungroup() %>% 
+  gg_line_chart("date",
+                "cum_return",
+                facet_formula = "~symbol",
+                facet_args = list(scales = "free", ncol = 5),
+                theme = "minimal")
+```
+
+
+
+```{r feature-plot-2, eval=TRUE, fig.height=8}
+
+df %>% 
+ select(date, symbol, return) %>% 
+  spread(symbol, return) %>% 
+  select(-date) %>%
+  a2munge::correlater() %>%
+  ggplot(., aes(var1, var2, fill = cor))+
+  geom_tile(color = "white")+
+  geom_text(aes(label = round(cor, 2)), color = "black", size = 4) +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Correlation") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                   size = 12, hjust = 1)) +
+  coord_fixed() +
+  labs(title = "Security Correlation Heatmap",
+       x = "",
+       y = "")
+```
+
+
+### Pipelines
+
+
+```{r pipeline-print, eval=TRUE}
+for(p in seq_along(r1$pipelines)) {
+  print(r1$pipelines[[p]])
+}
+```
+
+
+### Models
+
+
+```{r models-print, eval=TRUE, results='asis'}
+
+for(i in seq_along(r1$models)) {
+  cat("####", names(r1$models)[i])
+  cat("\n")
+  cat("* Method:", paste0("__", r1$models[[i]]$method, "__"), "\n")
+  cat("* Package:", paste0("__", r1$models[[i]]$package, "__"), "\n")
+  cat("* Pipeline:", paste0("__", r1$models[[i]]$pipe, "__"), "\n")
+  cat("* Status:", paste0("__", r1$models[[i]]$status, "__"), "\n")
+  cat("* Last Updated:", paste0("__", r1$models[[i]]$last_updated, "__"), "\n")
+  cat("\n")
+  
+  cat("##### Parameter Tuning:\n")
+  for(p in seq_along(r1$models[[i]]$param_map)) {
+    cat("*",
+        paste0(names(r1$models[[i]]$param_map)[p], ":"),
+        paste(r1$models[[i]]$param_map[[p]], collapse = ", "),
+        "\n")
+  }
+  cat("\n")
+}
+
+```
+
+
+### Leaderboard
+
+
+```{r leaderboard, eval=TRUE}
+r1$performance %>% 
+  dplyr::select(model_uid, pipeline_uid, method, param_grid, sample, !!r1$measure$method) %>% 
+  dplyr::arrange_at(r1$measure$method) %>% 
+  knitr::kable(.,
+               digits = 3,
+               caption = paste(r1$name, "Model Leaderboard"))
+```
+
+
+### Baseline Model
+
+```{r baseline, eval=TRUE}
+
+baseline <- r1$models$baseline$fit$stages[[2]]
+features <- setdiff(colnames(baseline$summary$predictions),
+                    c(r1$target, "features", "label", "prediction"))
+tibble(feature  = c("Intercept", features),
+       estimate = c(baseline$intercept, baseline$coefficients),
+       stderr   = baseline$summary$coefficient_standard_errors,
+       t_stat   = baseline$summary$t_values,
+       p_values = baseline$summary$p_values) %>% 
+  knitr::kable(.,
+               digits = 3,
+               caption = "Baseline Model Coefficients Summary")
+
+tibble(r2   = baseline$summary$r2,
+       rmse = baseline$summary$root_mean_squared_error,
+       mse  = baseline$summary$mean_squared_error,
+       mae  = baseline$summary$mean_absolute_error) %>% 
+  knitr::kable(.,
+               digits = 3,
+               caption = "Baseline Model Fit Summary")
+```
+
+
+
+### Final Model
+
+
+```{r final-model, eval=TRUE, results='asis'}
+
+cat("* uid:", paste0("__", r1$final_model$uid, "__"), "\n")
+cat("* Method:", paste0("__", r1$final_model$method, "__"), "\n")
+cat("* Package:", paste0("__", r1$final_model$package, "__"), "\n")
+cat("* Status:", paste0("__", r1$final_model$status, "__"), "\n")
+cat("* Last Updated:", paste0("__", r1$final_model$last_updated, "__"), "\n")
+cat("\n")
+
+```
+
+
+```{r final-model-params, eval=TRUE}
+
+r1$final_model$fit$stages[[2]]$param_map %>%
+  as.data.frame() %>%
+  tidyr::gather(key = "parameter") %>% 
+  dplyr::filter(! grepl("_col|seed", parameter)) %>% 
+  knitr::kable(.,
+               table.attr = "style='width:30%;'",
+               caption = "Final Model Parameters")
+```
+
+
+```{r test-fit-print, eval=TRUE, results='asis'}
+if(! is.null(r1$samples$test_holdout_prct)) {
+  cat("#### Test Holdout Fit\n")
+  cat("Final Model Performance on Test Holdout:\n\n")
+  cat("*", r1$measure$method, "=", round(r1$final_model$test_performance[[1]], 3), "\n")
+}
+```
+
+
+
+### Predictions
+
+
+```{r mkt-predictions, eval=TRUE}
+
+knitr::kable(mkt_preds,
+             digits = 3,
+             caption = "Market Predictions")
+
+```
+
+
+
+```{r predictions-plot, eval=TRUE, fig.height=8}
+
+preds_sum <- preds %>%
+  inner_join(est$mu, by = "symbol") %>% 
+  inner_join(est$sigma %>% 
+               diag() %>%
+               sqrt() %>%
+               t() %>% 
+               as.data.frame() %>%
+               gather(key = "symbol", value = "stddev"),
+             by = "symbol") %>% 
+  rename(`Predicted Return` = predicted, `Sample Return` = return, `Std Dev` = stddev)
+
+preds_sum %>%
+    gather(key = "metric", value = "return", -symbol, -`Std Dev`) %>% 
+    ggplot(aes(y=`Std Dev`)) +
+    geom_point(aes(x=return, color = symbol), shape = 16, size = 4) +
+    geom_label(aes(x=return, color = symbol, label = symbol),
+               nudge_x = .0075, nudge_y = .01) +
+    geom_abline(linetype = 5, color = "grey75") +
+    facet_wrap(~metric, ncol = 1) +
+    theme_sncr() +
+    guides(color = FALSE, label = FALSE) +
+    scale_color_madstork() +
+    scale_x_continuous(labels = scales::percent) +
+    scale_y_continuous(labels = scales::percent) +
+    labs(title = "Security Frontier Plot",
+         subtitle = "Predicted and Sample Return Estimates",
+         y = "Std Dev",
+         x = "Return")
+
+preds_sum %>% 
+  arrange(-`Predicted Return`) %>% 
+  DT::datatable(.,
+                caption = paste("Symbol", est_periods, est_grain, "Predictions")) %>% 
+  DT::formatPercentage(2:4, digits=1)
+```
+
+
+
+```{r estimates-write, eval=TRUE, echo=FALSE}
+
+est$mu <- arrange(preds, symbol)
+
+file_name <- paste(c("security-estimates-", as.character(Sys.time()), ".rds"), collapse = "")
+current_pred_path <- here("data", "predictions", file_name)
+saveRDS(current_pred, file = current_pred_path)
+```
+
+* Current estimates written to file here: _`r print(current_pred_path)`_
+
+
+## Configuration
+
+```{r estimates-config, echo=TRUE, eval=FALSE, ref.label=c('portfolio-config', 'estimates-config', 'prediction-config')}
+
+```
+
+
+```{r regressor-config, echo=TRUE, eval=FALSE, ref.label=c('feature-pipeline', 'regressor')}
+
+```
+
+
+## Appendix
+
+```{r config, echo=TRUE, eval=FALSE, ref.label=c('r-config', 'spark-config')}
+
+```
+
+* runtime: `r as.character(Sys.time() - t1)`
