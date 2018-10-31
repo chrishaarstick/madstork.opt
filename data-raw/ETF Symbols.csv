@@ -1,0 +1,85 @@
+symbol,name,category,group,extended,income,base,core,growth
+SPY,SPDR S&P 500 ETF Trust,index,de,0,0,0,0,0
+QQQ,PowerShares QQQ Trust,index,de,1,0,1,0,0
+IWM,iShares Russell 2000 ETF,index,de,0,0,1,1,0
+DIA,SPDR Dow Jones Industrial Average ETF Trust,index,de,1,1,1,1,0
+FEZ,SPDR EURO STOXX 50 ETF,index,de,0,1,0,1,0
+OEF,iShares S&P 100 ETF,index,de,0,0,0,0,0
+IWF,iShares Russell 1000 Growth ETF,index,de,0,0,0,0,0
+IWD,iShares Russell 1000 Value ETF,index,de,0,0,0,0,0
+PFF,iShares U.S. Preferred Stock ETF,index,de,0,1,0,0,0
+VOO,Vanguard 500 Index Fund ETF Class,index,de,0,0,0,0,0
+IJH,iShares Core S&P Mid-Cap ETF,index,de,0,0,0,0,0
+IWO,iShares Russell 2000 Growth ETF,index,de,1,0,0,0,1
+IWN,iShares Russell 2000 Value ETF,index,de,1,0,0,0,0
+ACWI,iShares MSCI ACWI ETF,index,de,0,0,0,0,0
+EFA,iShares MSCI EAFE ETF,index,de,0,1,1,0,0
+EEM,iShares MSCI Emerging Markets ETF,index,de,0,1,1,0,0
+SDY,SPDR S&P Dividend ETF,index,de,0,1,0,0,0
+HDV,iShares Core High Dividend,index,de,0,1,0,0,0
+IDV,iShares International Select Dividend ETF,index,de,0,1,0,0,0
+XLE,Energy Select Sector SPDR Fund,sector,de,1,0,0,1,1
+XLF,Financial Select Sector SPDR Fund,sector,de,1,0,0,1,1
+IDU,iShares Dow Jones US Utilities,sector,de,1,1,0,1,0
+XLI,Industrial Select Sector SPDR Fund,sector,de,1,0,0,0,0
+GDX,VanEck Vectors Gold Miners ETF,sector,de,1,0,0,0,1
+XLK,Technology Select Sector SPDR Fund,sector,de,1,0,0,1,1
+IYH,Health Care Select Sector SPDR Fund,sector,de,1,0,0,0,1
+XLY,Consumer Discretionary Select Sector SPDR Fund,sector,de,1,0,0,0,1
+XLP,Consumer Staples Select Sector SPDR Fund,sector,de,1,0,0,1,0
+XLB,Materials Select Sector SPDR Fund,sector,de,1,0,0,0,0
+XOP,iShares Dow Jones US Healthcare,sector,de,1,0,0,0,0
+IYR,iShares U.S. Real Estate ETF,sector,de,1,1,1,1,1
+XHB,Spdr S&P Homebuilders Etf,sector,de,0,0,0,0,0
+ITB,iShares U.S. Home Construction ETF,sector,de,0,0,0,0,0
+VNQ,Vanguard REIT Index Fund ETF Shares,sector,de,0,1,0,0,0
+IYE,iShares U.S. Energy ETF,sector,de,0,0,0,0,0
+OIH,VanEck Vectors Oil Services ETF,sector,de,0,0,0,0,1
+XME,SPDR S&P Metals & Mining ETF,sector,de,0,0,0,0,0
+XRT,Spdr S&P Retail Etf,sector,de,0,0,0,0,0
+SMH,VanEck Vectors Semiconductor ETF,sector,de,0,0,0,0,0
+IBB,iShares Nasdaq Biotechnology ETF,sector,de,1,0,0,0,1
+KBE,SPDR S&P Bank ETF,sector,de,0,0,0,0,0
+KRE,SPDR S&P Regional Banking ETF,sector,de,0,0,0,0,0
+XTL,SPDR S&P Telecom ETF,sector,de,0,1,0,0,0
+EWJ,iShares MSCI Japan ETF,country,ie,1,0,0,1,0
+FXI,iShares China Large-Cap ETF,country,ie,1,0,0,1,1
+EWZ,iShares MSCI Brazil Capped ETF,country,ie,1,0,0,1,1
+EWT,iShares MSCI Taiwan ETF,country,ie,0,0,0,0,1
+RSX,VanEck Vectors Russia ETF,country,ie,0,0,0,0,0
+EWG,iShares MSCI Germany ETF,country,ie,1,0,0,0,0
+EWH,iShares MSCI Hong Kong ETF,country,ie,0,0,0,0,0
+EWI,iShares MSCI Italy Capped ETF,country,ie,0,0,0,0,0
+EWW,iShares MSCI Mexico Capped ETF,country,ie,0,0,0,0,1
+EWU,iShares MSCI United Kingdom ETF,country,ie,1,0,0,0,0
+EPI,WisdomTree India Earnings Fund,country,ie,1,0,0,1,1
+PIN,PowerShares India Portfolio,country,ie,0,0,0,0,0
+IDX,VanEck Vectors Indonesia Index ETF,country,ie,0,0,0,0,1
+EWY,iShares MSCI South Korea Capped ETF,country,ie,0,0,0,0,0
+EWA,iShares MSCI Australia ETF,country,ie,1,0,0,0,1
+EWM,iShares MSCI Malaysia ETF,country,ie,0,0,0,0,0
+EWS,iShares MSCI Singapore ETF,country,ie,0,0,0,0,0
+EWC,iShares MSCI Canada ETF,country,ie,0,0,0,0,0
+EWP,iShares MSCI Spain Capped ETF,country,ie,0,0,0,0,0
+EWL,iShares MSCI Switzerland Capped ETF,country,ie,0,0,0,0,0
+EZA,iShares MSCI South Africa ETF,country,ie,1,0,0,0,1
+GLD,SPDR Gold Trust,commodity,cm,1,0,1,1,0
+SLV,iShares Silver Trust,commodity,cm,1,0,0,0,0
+UNG,United States Natural Gas Fund,commodity,cm,0,0,0,0,0
+USO,"United States Oil Fund, LP",commodity,cm,1,0,0,0,0
+DBC,PowerShares DB Commodity Index Tracking Fund,commodity,cm,1,0,0,1,0
+DBA,PowerShares DB Agriculture Fund,commodity,cm,0,0,0,0,0
+CORN,Teucrium Corn Fund,commodity,cm,0,0,0,0,0
+DBB,PowerShares DB Base Metals Fund,commodity,cm,0,0,0,0,0
+DBO,PowerShares DB Oil Fund,commodity,cm,0,0,0,0,0
+DBE,PowerShares DB Energy Fund,commodity,cm,0,0,0,0,0
+PALL,ETFS Physical Palladium Shares,commodity,cm,0,0,0,0,0
+PPLT,ETFS Physical Platinum Shares,commodity,cm,0,0,0,0,0
+URA,Global X Uranium ETF,commodity,cm,0,0,0,0,0
+CAFÉ,Barclays Bank iPath Pure Beta Coffee,commodity,cm,0,0,0,0,0
+TLT,iShares 20+ Year Treasury Bond ETF,bond,fi,1,1,1,1,0
+IEF,iShares 7-10 Year Treasury Bond ETF,bond,fi,0,1,0,1,0
+TIP,iShares Barclays TIPS Bond,bond,fi,0,1,1,0,0
+LQD,iShares iBoxx $ Invest Grade Corp Bond,bond,fi,0,1,1,1,0
+HYG,iShares iBoxx $ High Yield Corporate Bd,bond,fi,1,1,0,1,1
+BWX,SPDR Barclays Capital Intl Treasury Bond,bond,fi,0,1,0,0,0
