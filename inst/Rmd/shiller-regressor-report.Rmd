@@ -115,13 +115,14 @@ for(var in c("dividend", "gs10", "cpi", "cape")) {
       add_model(pipe = NULL, method = "auto.arima") %>%
       add_model(pipe = NULL, method = "ets") %>%
       train_models(.) %>%
-      set_final_model(., method = "best", reevaluate = TRUE, refit = TRUE) %>% 
+      set_final_model(., method = "best", reevaluate = FALSE, refit = TRUE) %>% 
       predict(., periods = horizon)
     
+    # var_values <- c(na.omit(pull(clean, !!sym(var))), var_forecaster$predictions$mean)
+    # clean <- mutate(clean, !!sym(var) := var_values)
     clean[is.na(clean[[var]]), var] <- var_forecaster$predictions$mean
   }
 }
-
 
 ```
 
@@ -140,8 +141,8 @@ df <- clean %>%
                 div_yield = dividend / price,
                 div_yield_real = div_yield - inf_1yr,
                 gs10_real = gs10 - inf_1yr,
-                gs10_d_1yr = gs10 / lag(gs10, 12) - 1,
-                gs10_d_5yr = gs10 / lag(gs10, 60) - 1,
+                gs10_real_d_1yr = gs10_real - lag(gs10_real, 12),
+                gs10_real_d_5yr = gs10 - lag(gs10_real, 60),
                 cape_d_1yr = cape / lag(cape, 12) - 1,
                 cape_d_5yr = cape / lag(cape, 60) - 1,
                 cape_d_10yr = cape / lag(cape, 120) - 1)
@@ -196,16 +197,16 @@ sdf <- train %>%
 feature_pipe <- pipeline(expr = function(df) {
    target <- "ftr_ret_1yr"
   
-  df <- df %>% 
+   df %>% 
     dplyr::select(ftr_ret_1yr, ret_1yr, ret_2yr, ret_5yr, ret_10yr,
                   cape, cape_d_1yr, cape_d_5yr, cape_d_10yr, 
-                  gs10_real, gs10_d_1yr, gs10_d_5yr, div_yield_real)  %>% 
+                  gs10_real, gs10_real_d_1yr, gs10_real_d_5yr, div_yield_real)  %>% 
     mutate(cape_cross_d_1yr = cape * cape_d_1yr,
            cape_cross_d_10yr = cape * cape_d_10yr,
            cape_cross_ret_1yr = cape * ret_1yr,
            cape_cross_ret_10yr = cape * ret_10yr)
-  df %>% 
-    a2munge::normalizer(measure_vars = setdiff(colnames(df), target))
+  # df %>% 
+  #   a2munge::normalizer(measure_vars = setdiff(colnames(df), target))
   
 },
 uid  = "Feature-Pipe",
@@ -234,13 +235,13 @@ r1 <- sdf %>%
   add_model(., 
             method = "ml_linear_regression",
             pipe = feature_pipe,
-            param_map = list(standardization = FALSE),
+            param_map = list(standardization = TRUE),
             uid = "baseline",
             desc = "Baseline Model") %>% 
   add_model(.,
             method = "ml_linear_regression",
             pipe = feature_pipe,
-            param_map = list(standardization = FALSE,
+            param_map = list(standardization = TRUE,
                              elastic_net_param = 1,
                              reg_param = c(0.05, 0.01, 0.001)),
             uid = "lasso",
@@ -266,22 +267,33 @@ r1 <- sdf %>%
 ```
 
 
-```{r predictions}
+```{r predictions-prep}
 
 # Combine datasets
 total <- bind_rows(train, test)
 
+# Create Test SDF
+test_sdf <- test %>% 
+  select(-index, -!!sym(r1$target)) %>%
+  mutate(!!sym(r1$target) := rnorm(n()),
+         date = as.character(date)) %>% 
+  copy_to(sc, ., "df", overwrite = TRUE)
+
+```
+
+
+```{r predictions}
+
 # Apply model
-r1_preds <- total %>% 
-  mutate(!!sym(r1$target) := 0) %>% 
-  copy_to(sc, ., "df", overwrite = TRUE) %>% 
+r1_preds <- test_sdf %>%
+  select(-date) %>% 
   predict(r1, .) 
 
 # Predictions
 preds <- r1_preds$predictions %>% 
+  sdf_bind_cols(select(test_sdf, date)) %>% 
   collect() %>% 
-  bind_cols(select(test,date)) %>% 
-  select(date, predicted)
+  mutate(date = as.Date(date))
 
 # Current Forecast
 current_pred <- preds %>% 
@@ -296,7 +308,7 @@ current_pred <- preds %>%
 
 
 
-```{r execution, eval=TRUE, ref.label=c('r-config', 'r-setup', 'spark-config', 'spark-setup',  'data-import', 'data-prep', 'data-transform', 'data-split','spark-import', 'feature-pipeline', 'regressor', 'predictions')}
+```{r execution, eval=TRUE, ref.label=c('r-config', 'r-setup', 'spark-config', 'spark-setup',  'data-import', 'data-prep', 'data-impute', 'data-transform', 'data-split','spark-import', 'feature-pipeline', 'regressor', 'predictions-prep', 'predictions')}
 
 ```
 
@@ -328,12 +340,12 @@ cat("###", "Input Data:", dataset_name, "\n")
 ```{r sample-records, eval=TRUE}
 
 # Datatable with sample records
-r1$data %>% 
-  collecter(sample = TRUE, method = "head", size = 100) %>% 
+r1$data %>%
+  collecter() %>%
   DT::datatable(.,
                 options = list(scrollX = TRUE),
                 caption = paste(dataset_name, "Sample Records")) %>% 
-  DT::formatRound(colnames(r1$data),digits=3)
+  DT::formatRound(colnames(r1$data), digits=3)
 ```
 
 
@@ -540,6 +552,7 @@ if(! is.null(r1$samples$test_holdout_prct)) {
 
 ### Predictions
 
+
 ```{r predictions-plot, eval=TRUE}
 
 preds %>% 
@@ -565,7 +578,7 @@ current_pred_path <- here("data", "predictions", file_name)
 write.csv(current_pred, current_pred_path, row.names = FALSE)
 ```
 
-* Current predictions written to file here: _`r print(current_pred_path)`_
+* Current predictions written to file here: _`r current_pred_path`_
 
 ## Configuration
 
@@ -579,3 +592,6 @@ write.csv(current_pred, current_pred_path, row.names = FALSE)
 ```{r config, echo=TRUE, eval=FALSE, ref.label=c('r-config', 'spark-config')}
 
 ```
+
+
+* runtime: `r paste(round(difftime(Sys.time(), t1), 2), "minutes)`
