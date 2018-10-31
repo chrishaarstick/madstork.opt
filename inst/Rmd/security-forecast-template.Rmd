@@ -60,7 +60,7 @@ spark_config_args <- list(spark.memory.fraction = 0.9)
 ```{r portfolio-config}
 
 # Path to MadStork Portfolio Object
-portfolio_path <- "C:/Users/user/Dropbox/MadStork/Accounts/personal_morganstanley/personal-morganstanley.RData"
+portfolio_path <- ""
 ```
 
 
@@ -86,7 +86,7 @@ est_horizon <- 10
 ```{r prediction-config}
 
 # Path to Market Prediction
-mkt_prediction_path <- "C:/Users/user/Dropbox/MadStork/market-forecast/data/predictions/market-forecast-2018-10-29.csv"
+mkt_prediction_path <- ""
 
 # Market Symbol
 mkt_symbol <- "SPY"
@@ -602,4 +602,4 @@ saveRDS(current_pred, file = current_pred_path)
 
 ```
 
-* runtime: `r as.character(Sys.time() - t1)`
+* runtime: `r difftime(Sys.time() - t1)`
