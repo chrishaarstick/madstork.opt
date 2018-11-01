@@ -109,7 +109,8 @@ symbols <- union(port$holdings$symbol, c(est_symbols, mkt_symbol))
 
 # Define Start and End date
 #est_end_date <- today()
-est_end_date <- floor_date(today(), unit = "months") - days(1)
+#est_end_date <- floor_date(today(), unit = "months") - days(1)
+est_end_date <- as.Date(mkt_preds$date)
 period_fun <- match.fun(paste0(est_grain, "s"))
 est_start_date <- est_end_date - period_fun(est_horizon) + days(1)
 
@@ -532,7 +533,7 @@ knitr::kable(mkt_preds,
 
 
 
-```{r predictions-plot, eval=TRUE, fig.height=8}
+```{r predictions-plot, eval=TRUE, fig.height=6}
 
 preds_sum <- preds %>%
   inner_join(est$mu, by = "symbol") %>% 
@@ -547,12 +548,12 @@ preds_sum <- preds %>%
 
 preds_sum %>%
     gather(key = "metric", value = "return", -symbol, -`Std Dev`) %>% 
-    ggplot(aes(y=`Std Dev`)) +
-    geom_point(aes(x=return, color = symbol), shape = 16, size = 4) +
-    geom_label(aes(x=return, color = symbol, label = symbol),
+    ggplot(aes(x=`Std Dev`)) +
+    geom_point(aes(y=return, color = symbol), shape = 16, size = 4) +
+    geom_label(aes(y=return, color = symbol, label = symbol),
                nudge_x = .0075, nudge_y = .01) +
     geom_abline(linetype = 5, color = "grey75") +
-    facet_wrap(~metric, ncol = 1) +
+    facet_wrap(~metric, ncol = 2) +
     theme_sncr() +
     guides(color = FALSE, label = FALSE) +
     scale_color_madstork() +
@@ -560,8 +561,8 @@ preds_sum %>%
     scale_y_continuous(labels = scales::percent) +
     labs(title = "Security Frontier Plot",
          subtitle = "Predicted and Sample Return Estimates",
-         y = "Std Dev",
-         x = "Return")
+         x = "Std Dev",
+         y = "Return")
 
 preds_sum %>% 
   arrange(-`Predicted Return`) %>% 
