@@ -1,0 +1,315 @@
+---
+title: "MadStork - Portfolio Optimization Template"
+author: "Haarstick"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document:
+    toc: true
+    theme: united
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, error = TRUE, eval=FALSE,
+                      warning = FALSE, message = FALSE,
+                      fig.align = "center", fig.width = 10, fig.height = 5)
+t1 <- Sys.time()
+```
+
+
+```{r r-config}
+
+# Library Path
+lib_path <- .libPaths()[1]
+
+# R packages
+packages <- c("a2munge", "a2modeler", "a2charter", "dplyr", "tidyr", "readxl", "tibble", "purrr", "ggplot2", "forcats", "stringr", "lubridate", "rlang", "madstork", "madstork.opt", "here", "knitr", "DT")
+
+
+```
+
+
+```{r r-setup}
+
+# Load Libraries
+for(pck in packages) library(pck, lib.loc = lib_path, character.only = TRUE)
+
+```
+
+
+
+```{r portfolio-config}
+
+# Path to MadStork Portfolio Object
+portfolio_path <- ""
+```
+
+
+
+```{r estimates-config}
+
+# Path to Estimates Object
+estimates_path <- ""
+```
+
+
+```{r load-objects}
+
+# Load portfolio object
+port <- load_portfolio(portfolio_path)
+
+# load market predictions
+est <- readRDS(estimates_path)
+
+```
+
+
+```{r port-stats}
+
+# Calculate Portfolio Stats
+port_stats <- get_estimated_port_stats(pobj = port, eobj = est, port_only = FALSE)
+kable(port_stats,
+      digits = 3,
+      caption = "Current Portfolio Statistics")
+```
+
+
+```{r constraints}
+
+# Define Constraints
+const <- constraints(symbols = est$symbols) %>%
+  add_symbol_constraint(min = 0.0, max = 0.20) %>% 
+  add_cash_constraint(min = 0.02, max = 0.05)
+
+```
+
+
+```{r optimization-config}
+
+# Set Optimization Parameters
+.target <- 'sharpe'   
+.amount <- 5000
+.lot_size <- 1
+.max_runtime <- 300
+.npairs <- 20
+.max_iters <- 20
+.improve_lag <- 5
+.min_improve <- .001
+
+```
+
+
+```{r portfolio-optimization}
+
+# Prices
+prices <- get_current_prices(est$symbols, dividends = TRUE)
+
+# Create Optimization
+po <- portfolio_optimization(port, est, const, prices, target = .target)
+
+# Optimize
+po_opt <- optimize(po,
+                   n_pairs = .npairs,
+                   amount        = .amount,
+                   lot_size      = .lot_size,
+                   max_iter      = .max_iters,
+                   max_runtime   = .max_runtime,
+                   improve_lag   = .improve_lag,
+                   min_improve   = .min_improve,
+                   plot_iter     = FALSE)
+```
+
+
+```{r execution, eval=TRUE, ref.label=c('r-config', 'r-setup', 'portfolio-config', 'estimates-config', 'load-objects', 'constraints', 'optimization-config', 'portfolio-optimization')}
+
+```
+
+
+```{r port-print, eval=TRUE, results='asis'}
+cat("##", "Portfolio:", port$name, "\n")
+
+```
+
+
+
+```{r port-values, eval=TRUE}
+port$market_value %>%
+  filter(last_updated == max(last_updated)) %>% 
+  kable(.,
+        digits = 2,
+        format.args = list(big.mark = ","),
+        caption = "Current Portfolio Market Value")
+```
+
+
+```{r port-stats-print, eval=TRUE, ref.label=c('port-stats')}
+
+```
+
+
+```{r port-constraints-print, eval=TRUE}
+
+# Check Constraints 
+check_constraints(const, port, est) %>% 
+  datatable(.,
+            caption = "Portfolio Constaints Check") %>% 
+  formatRound(6, digits = 4)
+```
+
+
+
+## Portfolio Optimization
+
+Optimization goal is to `r po_opt$criteria` portfolio __`r  po_opt$target`__
+
+* Version: __`r po_opt$version`__  
+* Created on: __`r as.character(po_opt$created_on)`__ 
+* Created by: __`r po_opt$user`__
+* Description: _`r po_opt$desc`_  
+
+
+### Constraints
+
+The following constraints were placed on the optimization
+
+```{r constraint-print, eval=TRUE}
+print(const)
+```
+
+
+### Parameters
+
+The optimization parameters were set as follows 
+
+```{r optimization-config-print, eval=FALSE, echo=TRUE, ref.label='optimization-config'}
+
+```
+
+
+### Results
+
+
+```{r po-stats, eval=TRUE}
+
+# Estimated Optimal Port Stats
+get_estimated_port_stats(po_opt$optimal_portfolio, po_opt$estimates) %>% 
+  kable(.,
+        digits = 3,
+        caption = "Optimal Portfolio Statistics")
+```
+
+
+```{r po-values, eval=TRUE}
+
+# Optimal Port Values and Market Values
+po_opt$portfolio_values %>% 
+  filter(iter == max(iter)) %>% 
+  select(-iter) %>% 
+  kable(.,
+        digits = 2,
+        format.args = list(big.mark = ","),
+        caption = "Optimal Portfolio Values")
+
+get_estimated_port_market_value(po_opt$optimal_portfolio, po_opt$estimates) %>% 
+  kable(.,
+        digits = 2,
+        format.args = list(big.mark = ","),
+        caption = "Estimated Optimal Portfolio Market Values")
+
+```
+
+
+```{r po-target-chart, eval=TRUE}
+
+# Portfolio Target Path Chart
+po_target_chart(po_opt)
+```
+
+
+#### Symbol Shares
+
+```{r po-share-chart, eval=TRUE, fig.height=6}
+
+# Current vs Optimal Symbols Share
+map_df(list(port, po_opt$optimal_portfolio),
+       ~get_symbol_estimates_share(pobj = ., eobj = po_opt$estimates), .id = "port") %>%
+  spread(key = "port", value = "portfolio_share") %>% 
+  select(symbol, Current = `1`, Optimal = `2`) %>% 
+  datatable(.,
+            caption = "Current vs Optimal Symbols Share") %>% 
+  formatPercentage(-1, digits=1)
+
+# Portfolio Optimization Share Chart
+po_symbol_share_chart(po_opt)
+
+# Share Data
+map_df(po_opt$portfolios,
+       ~get_symbol_estimates_share(pobj = ., eobj = po_opt$estimates), .id = "iter") %>%
+  spread(key="symbol", value = "portfolio_share") %>% 
+  arrange(iter) %>% 
+  datatable(.,
+            options = list(scrollX = TRUE),
+            caption = "Symbol Share Path") %>% 
+  formatPercentage(-1, digits=1)
+```
+
+
+#### Constraints
+
+```{r po-constraint-chart, eval=TRUE, fig.height=10}
+
+# Portfolio Constraints Chart
+po_constraints_charts(po_opt)
+
+# Check Constraints 
+check_constraints(po_opt$constraints,
+                  po_opt$optimal_portfolio,
+                  po_opt$estimates) %>% 
+  datatable(.,
+            filter = "top",
+            caption = "Optimal Portfolio Constraints Check") %>% 
+  formatRound(6, digits = 4)
+```
+
+
+#### Trade Pairs
+
+```{r po-trade-pairs, eval=TRUE}
+
+# Optimization Trade Pairs
+po_opt$trade_pairs %>% 
+  arrange(-trades) %>% 
+  datatable(.,
+             filter = "top",
+            caption = "Optimization Trade Pairs") %>% 
+  formatRound(4:6, digits = 3)
+```
+
+
+#### Trades
+
+
+```{r po-trades, eval=TRUE}
+
+# Optimal Trades
+po_opt$trades %>% 
+  datatable(.,
+            filter = "top",
+            extensions = 'Buttons', 
+            options = list(
+              dom = 'Bfrtip',
+              buttons = c('copy', 'csv', 'print')),
+            caption = "Potfolio Optimization Trades") %>% 
+  formatCurrency("amount") %>% 
+  formatRound("price", digits = 2)
+
+```
+
+
+## Appendix
+
+```{r config, echo=TRUE, eval=FALSE, ref.label=c('r-config')}
+
+```
+
+* runtime: `r round(difftime(Sys.time(), t1, units = "mins"), 2)` minutes
