@@ -299,9 +299,9 @@ print.symbol_constraint <- function(x, ...) {
   cat(
     "Symbol Constraint:",
     paste0(
-      xt$args,
+      x$args,
       " min share = ",
-      xt$min,
+      x$min,
       ", max share = ",
       x$max
     )

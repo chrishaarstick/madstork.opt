@@ -387,7 +387,7 @@ get_estimated_port_stats <- function(pobj, eobj, port_only = FALSE) {
   checkmate::assert_class(eobj, "estimates")
   checkmate::assert_subset(pobj$holdings$symbols, eobj$symbols)
 
-  mu <- get_holdings_market_value(pobj) %>%
+  mu <- madstork::get_holdings_market_value(pobj) %>%
     dplyr::select(symbol, investments_share, portfolio_share) %>%
     tidyr::gather(key="type", value="mu", -symbol) %>%
     dplyr::inner_join(get_mu(eobj) %>%
