@@ -608,4 +608,4 @@ saveRDS(est, file = current_pred_path)
 
 ```
 
-* runtime: `r difftime(Sys.time() - t1)`
+* runtime: `r paste(round(difftime(Sys.time(), t1, units = "mins"), 2), "minutes)`
