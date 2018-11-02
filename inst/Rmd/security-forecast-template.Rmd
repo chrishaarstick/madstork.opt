@@ -93,10 +93,13 @@ mkt_symbol <- "SPY"
 ```
 
 
-```{r portfolio}
+```{r load-objects}
 
 # Load portfolio object
 port <- load_portfolio(portfolio_path)
+
+# load market predictions
+mkt_preds <- read.csv(mkt_prediction_path)
 
 ```
 
@@ -294,7 +297,7 @@ preds <- r1_preds$predictions %>%
 ```
 
 
-```{r execution, eval=TRUE, ref.label=c('r-config', 'r-setup', 'spark-config', 'spark-setup', 'portfolio-config', 'estimates-config', 'prediction-config', 'estimates', 'data-prep', 'data-transform', 'spark-import', 'feature-pipeline', 'regressor', 'predictions')}
+```{r execution, eval=TRUE, ref.label=c('r-config', 'r-setup', 'spark-config', 'spark-setup', 'portfolio-config', 'estimates-config', 'prediction-config', load-objects, 'estimates', 'data-prep', 'data-transform', 'spark-import', 'feature-pipeline', 'regressor', 'predictions')}
 
 ```
 
@@ -575,11 +578,13 @@ preds_sum %>%
 
 ```{r estimates-write, eval=TRUE, echo=FALSE}
 
-est$mu <- arrange(preds, symbol)
+est$mu <- preds %>% 
+  select(symbol, return = predicted) %>% 
+  arrange(symbol)
 
 file_name <- paste(c("security-estimates-", as.character(Sys.time()), ".rds"), collapse = "")
 current_pred_path <- here("data", "predictions", file_name)
-saveRDS(current_pred, file = current_pred_path)
+saveRDS(est, file = current_pred_path)
 ```
 
 * Current estimates written to file here: _`r print(current_pred_path)`_
