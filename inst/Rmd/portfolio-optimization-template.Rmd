@@ -168,6 +168,35 @@ Optimization goal is to `r po_opt$criteria` portfolio __`r  po_opt$target`__
 * Description: _`r po_opt$desc`_  
 
 
+### Estimates
+
+```{r esimates-chart, eval = TRUE}
+
+get_estimates_stats(est) %>% 
+  ggplot(., aes(y=mu, x=sd)) + 
+  geom_point(color = "red", size = 2) +
+  geom_text_repel() + +
+  geom_abline(linetype = 5, color = "grey75") +
+  theme_sncr() +
+  guides(color = FALSE, label = FALSE) +
+  scale_color_madstork() +
+  scale_x_continuous(labels = scales::percent) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Estimates Frontier Plot",
+       subtitle = "",
+       x = "Std Dev",
+       y = "Return")
+
+
+get_estimates_stats(est) %>% 
+  mutate(yield = yield / 100) %>% 
+  datatable(.,
+            filter = "top",
+            caption = "Portfolio Optimization Estimates") %>% 
+  formatPercentage(c(2, 3, 5), digits=1)
+```
+
+
 ### Constraints
 
 The following constraints were placed on the optimization

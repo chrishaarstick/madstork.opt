@@ -594,4 +594,4 @@ write.csv(current_pred, current_pred_path, row.names = FALSE)
 ```
 
 
-* runtime: `r paste(round(difftime(Sys.time(), t1), 2), "minutes)`
+* runtime: `r paste(round(difftime(Sys.time(), t1), 2), "minutes")`
