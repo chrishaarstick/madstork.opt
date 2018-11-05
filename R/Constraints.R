@@ -8,24 +8,26 @@
 #' Constraints Constructer
 #'
 #' Creates an object of class constraints
+#' 
 #'
-#' @param symbols vector of symbols to apply constraints to
+#' @param symbols vector of symbols to apply constraints to. Symbols constrain
+#'   tradable symbols in optimization
 #' @param constraints list of contraints
 #'
 #' @return constraints object
 #' @export
-constraints <- function(symbols,
-                        constraints = NULL) {
+constraints <- function(symbols, constraints = NULL) {
   checkmate::assert_character(symbols)
   checkmate::assert_list(constraints, null.ok = TRUE)
 
   if (is.null(constraints)) {
     constraints <- list()
   }
-
-  structure(list(symbols = symbols,
-                 constraints = constraints),
-            class = "constraints")
+  
+  structure(
+    list(symbols = symbols, constraints = constraints),
+    class = "constraints"
+  )
 }
 
 
@@ -48,6 +50,37 @@ add_constraint <- function(constraints, constraint) {
   constraints$constraints[[id]] <- constraint
   constraints
 }
+
+
+#' Remove Constraint from Constraints Object
+#'
+#' Remove constraint object from constraints list of contraints. Can reference
+#' constraint by either index or id
+#'
+#' @param constraints constraints object
+#' @param index constraint numeric index to remove. reference to position in
+#'   constraints list
+#' @param id constraint id number to remove. default is NULL. If id not null,
+#'   will over-ride index argument
+#'
+#' @return updated constraints object
+#' @export
+remove_constraint <- function(constraints, index, id = NULL) {
+  checkmate::assert_class(constraints, "constraints")
+  checkmate::assert_numeric(index, lower = 0, upper = length(constraints$constraints), null.ok = TRUE)
+  checkmate::assert_numeric(id, lower = 1, null.ok = TRUE)
+  
+  if(! is.null(id)) {
+    constraints_list <- purrr::discard(constraints$constraints, 
+                                       purrr::map_lgl(constraints$constraints, ~.$id == id))
+  } else {
+    constraints_list <- purrr::discard(constraints$constraints, 
+                                       1:length(constraints$constraints) == index)
+  }
+  
+  constraints(constraints$symbols, constraints = constraints_list)
+} 
+
 
 
 #' Get Constraints
@@ -93,6 +126,8 @@ get_constraints <- function(constraints,
 #'
 #' @param constraints constraints object
 #' @param index numeric index to filter constraints by
+#' 
+#' @export
 filter_constraints <- function(constraints, index) {
   checkmate::assert_class(constraints, "constraints")
   checkmate::assert_numeric(index, lower = 0, upper = length(constraints$constraints))
@@ -142,6 +177,38 @@ check_constraints <- function(constraints, portfolio, estimates) {
   )
 }
 
+
+#' Restrict Trading Symbols
+#'
+#' Restrict symbols from being traded in portfolio optimization. Removes any
+#' symbol constraints as well
+#'
+#' Typical use case is to restict certain portfolio holdings from being traded,
+#' due to tax implications or lack of liquidity
+#'
+#' @param constraints constraints object
+#' @param symbols vector of symbols to restict trading
+#'
+#' @return updated constraints object
+#' @export
+restrict_trading <- function(constraints, symbols) {
+  checkmate::assert_class(constraints, "constraints")
+  checkmate::assert_subset(symbols, constraints$symbols)
+  
+  for (sym in symbols) {
+    
+    # check if symbol constraint exists
+    sym_check <- purrr::map_lgl(constraints$constraints, ~.$type == "symbol" & .$args == sym)
+    if(any(sym_check)) {
+      index <- grep(TRUE, sym_check)
+      constraints <- remove_constraint(constraints, index = index, id = NULL)
+      message(cat("Removing prior", sym, "constraint"))
+    }
+  }
+  
+  constraints$symbols <- setdiff(constraints$symbols, symbols)
+  constraints
+}
 
 
 # Constraint Class --------------------------------------------------------
@@ -232,6 +299,7 @@ meet_constraint <- function(constraint,
   UseMethod("meet_constraint")
 }
 
+
 # Symbol Constraints ------------------------------------------------------
 
 
@@ -285,6 +353,20 @@ add_symbol_constraint <- function(constraints,
   }
 
   for (sym in symbols) {
+    
+    # check if symbol constraint exists
+    sym_check <- purrr::map_lgl(constraints$constraints,
+                                function(x) {
+                                  ifelse(is.null(x$args), FALSE,
+                                         ifelse(x$type == "symbol" & x$args == sym,
+                                                TRUE, FALSE))
+                                })
+    if(any(sym_check)) {
+      index <- grep(TRUE, sym_check)
+      constraints <- remove_constraint(constraints, index)
+      message(cat("Removing prior", sym, "constraint"))
+    }
+    
     c1 <- symbol_constraint(sym, min, max)
     constraints <- add_constraint(constraints, c1)
   }

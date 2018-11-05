@@ -43,10 +43,13 @@ portfolio_optimization <- function(portfolio,
   checkmate::assert_subset(c("symbol", "price", "dividend"), colnames(prices))
 
   criteria <- ifelse(target %in% c("sd"), "minimize", "maximize")
-  .target <- ifelse(target == "return", "mu",
-                    ifelse(target == "risk", "sd",
-                           ifelse(target == "income", "yield", target)))
-  tp <- trade_pairs(portfolio, estimates, .target)
+  .target <- dplyr::case_when(
+    target == "return" ~ "mu",
+    target == "risk" ~ "sd",
+    target == "income" ~ "yield",
+    TRUE ~ as.character(target)
+    )
+  tp <- trade_pairs(portfolio, estimates, constraints, .target)
   port_values <- get_estimated_port_values(portfolio, estimates) %>%
     dplyr::mutate(iter = 0)
 
@@ -278,19 +281,26 @@ get_buy_trades.character <- function(obj,
 #' 
 #' @importFrom magrittr %>%
 #' @export
-trade_pairs <- function(portfolio, estimates, target){
+trade_pairs <- function(portfolio, estimates, constraints, target){
   checkmate::assert_class(portfolio, "portfolio")
   checkmate::assert_class(estimates, "estimates")
   checkmate::assert_choice(target, c("mu", "sd", "sharpe", "yield"))
 
   est_stats <- get_estimates_stats(estimates) %>%
     dplyr::select_at(c("symbol", target))
-
+  
   holdings <- portfolio$holdings
-  port_syms <- if(nrow(holdings) > 0) unique(as.character(holdings$symbol)) else NULL
+  if (nrow(holdings) > 0) {
+    sell_syms <-  c("CASH", intersect(unique(as.character(holdings$symbol)),
+                                      as.character(constraints$symbols)))
+  } else {
+    sell_syms <-  "CASH"
+  }  
 
-  expand.grid(buy = c("CASH", estimates$symbols),
-              sell = c("CASH", port_syms)) %>%
+  buy_syms <- c("CASH", intersect(as.character(estimates$symbols),
+                                  as.character(constraints$symbols)))
+  
+  expand.grid(buy = buy_syms, sell = sell_syms) %>%
     dplyr::mutate_all(as.character) %>%
     dplyr::filter(buy != sell) %>%
     dplyr::mutate(id = row_number()) %>%
@@ -547,7 +557,7 @@ optimize <- function(obj,
       obj$portfolio_values <- obj$portfolio_values %>%
         rbind(get_estimated_port_values(port, obj$estimates) %>%
                 dplyr::mutate(iter = n + prev_iter))
-      obj$trade_pairs <- trade_pairs(obj$optimal_portfolio, obj$estimates, .target)
+      obj$trade_pairs <- trade_pairs(obj$optimal_portfolio, obj$estimates, obj$constraints, .target)
 
       if(plot_iter) print(po_target_chart(obj))
     }

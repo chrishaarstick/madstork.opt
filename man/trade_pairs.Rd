@@ -4,12 +4,14 @@
 \alias{trade_pairs}
 \title{Create Trade Pairs Function}
 \usage{
-trade_pairs(portfolio, estimates, target)
+trade_pairs(portfolio, estimates, constraints, target)
 }
 \arguments{
 \item{portfolio}{portfolio object}
 
 \item{estimates}{estimates object}
+
+\item{constraints}{constraints object}
 
 \item{target}{target objective}
 }

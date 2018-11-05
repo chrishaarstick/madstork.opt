@@ -175,3 +175,42 @@ test_that("Testing Estimate Symbol setdiff", {
   expect_true(all(po3_opt_cc$check))
 })
 
+
+
+test_that("Restricting Trades optimization works as expected", {
+  
+  
+  # Create Constraints
+  c2 <- constraints(symbols = e1$symbols) %>%
+    add_symbol_constraint(symbol = "SPY", min = 0.3, max = .4) %>%
+    add_symbol_constraint(symbol = "QQQ", min = 0.2, max = .3) %>%
+    add_symbol_constraint(symbol = "TLT", min = 0.10, max = .2) %>%
+    add_symbol_constraint(symbol = "GLD", min = 0.0, max = .1) %>% 
+    restrict_trading("GLD")
+  
+  # Create Optimization
+  po <- portfolio_optimization(p1, e1, c2, prices, target = "return")
+  
+  expect_false("GLD" %in% po$trade_pairs$sell)
+  expect_false("GLD" %in% po$trade_pairs$buy)
+  
+  # Optimize
+  po_opt <- optimize(po,
+                     n_pairs = .npairs,
+                     amount = trade_amount,
+                     lot_size = .lot_size,
+                     max_iter = .max_iters,
+                     max_runtime = .max_runtime,
+                     improve_lag = .improve_lag,
+                     min_improve = .001,
+                     plot_iter = FALSE)
+  
+  expect_equal(
+    p1$holdings %>% 
+      filter(symbol == "GLD") %>% 
+      pull(quantity),
+    po_opt$optimal_portfolio$holdings %>% 
+      filter(symbol == "GLD") %>% 
+      pull(quantity)
+  )
+})
