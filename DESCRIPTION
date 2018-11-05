@@ -17,7 +17,8 @@ Imports:
   ggplot2,
   scales,
   checkmate,
-  madstork
+  madstork,
+  corpcor
 Suggests: 
   testthat,
   docopt,
