@@ -12,7 +12,8 @@
 doc <- "Usage: portfolio_update.R [options] [-h]
 
 -s --script SCRIPT location of shiller market forecast rmarkdown script
--d --dir DIR project directory location to save output in [default: `./`]
+-d --dir DIR project directory location to save report in [default: `./`]
+-p --pred PRED file path to save predictions in [default: `./`]
 "
 
 # Load required packages
@@ -37,8 +38,8 @@ Sys.setenv("RSTUDIO_PANDOC" = "C:/Program Files/RStudio/bin/pandoc")
 # Parameters
 input_path <- opt$script
 output_dir <- opt$dir
-output_file <- paste0("shiller-regressor-report-", as.character(Sys.Date()), ".html")
-predictions_dir <- paste(proj_dir, "reports", sep = "/")
+output_file <- paste0("shiller-market-forecast-report-", as.character(Sys.Date()), ".html")
+predictions_dir <- opt$pred
 
 
 # Create Report
