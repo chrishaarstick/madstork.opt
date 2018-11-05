@@ -7,16 +7,9 @@ output:
     toc: true
     theme: united
 params:
+  raw_data_dir: ./
   predictions_dir: ./
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, error = TRUE, eval=FALSE,
-                      warning = FALSE, message = FALSE,
-                      fig.align = "center", fig.width = 10, fig.height = 5)
-t1 <- Sys.time()
-```
-
 
 ```{r r-config}
 
@@ -63,8 +56,8 @@ spark_config_args <- list(spark.memory.fraction = 0.9)
 # Get Shiller Market Data
 dataset_name <- "Shiller CAPE"
 url <- "http://www.econ.yale.edu/~shiller/data/ie_data.xls"
-dataset_name <- paste0("Shiller-", as.character(Sys.Date()))
-destfile <- here("data", "raw", paste0(dataset_name, ".xls"))
+dataset_name <- paste0("Shiller-", as.character(Sys.Date()), ".xls")
+destfile <- paste(params$raw_data_dir, dataset_name, sep="/")
 download.file(url, destfile, mode = "wb")
 raw <- readxl::read_excel(path = destfile, 
                          sheet = "Data",
@@ -571,6 +564,7 @@ current_pred %>%
                digits = 3,
                caption = "Current 1yr Market Forecast")
 ```
+
 
 
 ```{r predictions-write, eval=TRUE, echo=FALSE}
