@@ -21,8 +21,6 @@ Imports:
 Suggests: 
   testthat,
   docopt,
-  highcharter,
-  DT,
-  formattable
+  DT
 Remotes: chrishaarstick/madstork
 RoxygenNote: 6.1.0
