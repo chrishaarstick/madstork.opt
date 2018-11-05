@@ -189,8 +189,8 @@ get_mu <- function(eobj) {
 
 #' Add Calculated Sample Sigma to Estimates
 #'
-#' Function adds mu estimates. Allows for configurable function applied to
-#' sample returns
+#' Function adds sample sigma estimates. Allows for configurable function
+#' applied to sample sigma
 #'
 #' @param eobj estimates object
 #' @param fun summarise function. default is cov
@@ -211,6 +211,35 @@ add_sample_sigma <- function(eobj, fun = "cov", ...){
 
   eobj
 }
+
+
+#' Add Calculated Sample Sigma to Estimates
+#'
+#' Functions adds shrunk sigma estimates using lediot and wolf shrinkage
+#' estimator appraoch. See \code{\link[corpcor]{cov.shrink}}
+#'
+#' Default behavior is to estimate lambda and lambda.var empricially. These can
+#' lead to strong shrinkage estimates. Manual values can be provided to both
+#' ranges between [0,1]
+#'
+#' @param eobj estimates object
+#' @param ... additional arguments to pass to function
+#'
+#' @return updated estimates object
+#' @export
+add_shrink_sigma <- function(eobj, ...) {
+  checkmate::assert_class(eobj, "estimates")
+  
+  eobj$sigma <- get_returns(eobj) %>%
+    tidyr::spread(key = symbol, value = return) %>%
+    dplyr::select(-date) %>%
+    corpcor::cov.shrink(., verbose = FALSE, ...) %>%
+    as.matrix()
+  attributes(eobj$sigma)$class <- "matrix"
+  
+  eobj
+}
+
 
 #' Add Sigma Estimates
 #'

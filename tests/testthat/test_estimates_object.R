@@ -61,3 +61,22 @@ test_that("sigma functions internals work correctly", {
   assert_data_frame(get_sigma_df(e1))
   expect_equal(e1$symbols, colnames(get_sigma(e1)))
 })
+
+
+test_that("shink sigma functions work as expected", {
+  
+  e2 <- add_shrink_sigma(e1, lambda.var = 0.1, lambda = .5)
+  assert_matrix(e2$sigma)
+  assert_matrix(get_sigma(e2))
+  assert_data_frame(get_sigma_df(e2))
+  
+  edf <- inner_join(get_sigma_df(e1),
+                    get_sigma_df(e2),
+                    by = c("symbol1", "symbol2"),
+                    suffix = c("_sample", "_shrink")) %>% 
+    filter(symbol1 != symbol2) %>% 
+    filter(sigma_sample == max(sigma_sample)) %>% 
+    slice(1)
+  
+  expect_lte(edf$sigma_shrink, edf$sigma_sample)
+})

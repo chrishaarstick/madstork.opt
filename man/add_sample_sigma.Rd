@@ -17,6 +17,6 @@ add_sample_sigma(eobj, fun = "cov", ...)
 updated estimates object
 }
 \description{
-Function adds mu estimates. Allows for configurable function applied to
-sample returns
+Function adds sample sigma estimates. Allows for configurable function
+applied to sample sigma
 }
