@@ -97,3 +97,15 @@ test_that("constraint checks work as expected", {
   expect_equal(chk7ii$check, FALSE)
 
 })
+
+
+test_that("restricting trades works as expected", {
+  
+  c1.1 <- remove_constraint(c1, index = 4)
+  expect_equal(c1$symbols, c1.1$symbols)
+  expect_lt(length(c1.1$constraints), length(c1$constraints))
+  
+  c1.2 <- restrict_trading(c1, symbols = "GLD")
+  expect_equal(c1.2$symbols, c("SPY", "QQQ", "TLT"))
+  
+})

@@ -7,7 +7,8 @@
 constraints(symbols, constraints = NULL)
 }
 \arguments{
-\item{symbols}{vector of symbols to apply constraints to}
+\item{symbols}{vector of symbols to apply constraints to. Symbols constrain
+tradable symbols in optimization}
 
 \item{constraints}{list of contraints}
 }
