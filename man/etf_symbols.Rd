@@ -9,7 +9,7 @@
   \item{symbol}{ETF symbol} 
   \item{name}{ETF symbol name}
   \item{category}{ETF category. Categories include index, sector, commodity, bond and country} 
-  \item{group}{ETF category group code}#'   
+  \item{group}{ETF category group code}   
   }}
 \source{
 \url{https://finance.yahoo.com/etfs/}
