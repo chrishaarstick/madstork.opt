@@ -193,7 +193,8 @@ get_estimates_stats(est) %>%
   datatable(.,
             filter = "top",
             caption = "Portfolio Optimization Estimates") %>% 
-  formatPercentage(c(2, 3, 5), digits=1)
+  formatPercentage(c(2, 3, 5), digits = 1) %>% 
+  formatRound(4, digits = 3)
 ```
 
 
