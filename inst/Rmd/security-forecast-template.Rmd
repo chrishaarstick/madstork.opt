@@ -298,7 +298,6 @@ preds <- r1_preds$predictions %>%
 
 
 ```{r execution, eval=TRUE, ref.label=c('r-config', 'r-setup', 'spark-config', 'spark-setup', 'portfolio-config', 'estimates-config', 'prediction-config', 'load-objects', 'estimates', 'data-prep',  'spark-import', 'feature-pipeline', 'regressor', 'predictions')}
-
 ```
 
 
@@ -608,4 +607,4 @@ saveRDS(est, file = current_pred_path)
 
 ```
 
-* runtime: `r paste(round(difftime(Sys.time(), t1, units = "mins"), 2), "minutes)`
+* runtime: `r paste(round(difftime(Sys.time(), t1, units = "mins"), 2), "minutes")`
