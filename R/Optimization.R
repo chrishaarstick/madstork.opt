@@ -122,7 +122,7 @@ get_sell_trades <- function(pobj,
       if (partial) {
         s1 <- as.data.frame(sell(
           date = Sys.Date(),
-          symbol = h1$symbol,
+          symbol = as.character(h1$symbol),
           quantity = h1$quantity,
           price = h1$price
         ))
@@ -133,7 +133,7 @@ get_sell_trades <- function(pobj,
       quantity <- amount %/% (h1$price * lot_size) * lot_size
       s1 <- as.data.frame(sell(
         date = Sys.Date(),
-        symbol = h1$symbol,
+        symbol = as.character(h1$symbol),
         quantity = quantity,
         price = h1$price
       ))
@@ -525,9 +525,10 @@ optimize <- function(obj,
   checkmate::assert_number(min_improve, lower = 0)
   checkmate::assert_logical(plot_iter)
 
-  .target <- ifelse(obj$target == "return", "mu",
-                    ifelse(obj$target == "risk", "sd",
-                           ifelse(obj$target == "income", "yield", obj$target)))
+  .target <- dplyr::case_when(obj$target == "return"~ "mu",
+                              obj$target == "risk"~ "sd",
+                              obj$target == "income"~ "yield",
+                              TRUE ~ obj$target)
   .minimize <- ifelse(obj$criteria == "minimize", TRUE, FALSE)
   prev_iter <- max(obj$portfolio_values$iter)
 
@@ -649,6 +650,7 @@ optimize <- function(obj,
     continue <- all(c(runtime_lgl, improve, iters))
   }
 
+  
   # Get Consoldated trades
   new_trades <- dplyr::anti_join(obj$optimal_portfolio %>% get_trades(),
                                  obj$portfolios[[1]] %>% get_trades(),
@@ -668,24 +670,43 @@ optimize <- function(obj,
     dplyr::filter(type == "buy") %>%
     dplyr::group_by(date_added, transaction_date, type, symbol, price, desc) %>%
     dplyr::summarise_at("quantity", sum) %>%
-    dplyr::mutate(amount = price * quantity)
+    dplyr::ungroup() %>% 
+    dplyr::mutate(amount = price * quantity) %>% 
+    dplyr::mutate_at(c("type", "symbol", "desc"), as.character)
 
-  obj$trades <- dplyr::bind_rows(new_sells, new_buys)
-
+  # Apply Consolidated trades on first portfolio 
   final_port <- obj$portfolios[[1]]
   final_port$holdings_market_value <- update_holdings_market_value(final_port, obj$prices)
-  for (.id in new_sells$id) {
-    sell <- dplyr::filter(new_sells, id == .id) %>%
-      do(get_sell_trades(final_port, as.character(.$symbol), .$amount, lot_size))
-
-    final_port <- final_port %>%
-      make_sell(
-        id = sell$id,
-        quantity = sell$quantity,
-        price = sell$price,
-        desc = as.character(sell$desc)
-      )
+  
+  # Sells
+  if(nrow(new_sells) > 0) {
+    i <- 1 
+    for (.id in new_sells$id) {
+      sell <- dplyr::filter(new_sells, id == .id) %>%
+        dplyr::do(get_sell_trades(final_port, as.character(.$symbol), .$amount, lot_size)) %>% 
+        dplyr::mutate_at(c("type", "symbol", "desc"), as.character)
+      
+      # update sell trades
+      if(i == 1) {
+        updated_sells <- sell
+      }else {
+        updated_sells <- dplyr::bind_rows(updated_sells, sell)
+      }
+      
+      final_port <- final_port %>%
+        make_sell(
+          id = sell$id,
+          quantity = sell$quantity,
+          price = sell$price,
+          desc = as.character(sell$desc)
+        )
+      i <- 1+1
+    }
+  } else {
+    updated_sells <- NULL
   }
+  
+  # Buys
   for (sym in new_buys$symbol) {
     buy <- dplyr::filter(new_buys, symbol == as.character(sym))
     final_port <- final_port %>%
@@ -696,6 +717,9 @@ optimize <- function(obj,
         desc = as.character(buy$desc)
       )
   }
+  
+  # Update Objects
+  obj$trades <- dplyr::bind_rows(updated_sells, new_buys)
   obj$optimal_portfolio <- update_market_value(final_port, obj$prices)
 
   obj

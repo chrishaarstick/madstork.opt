@@ -91,6 +91,17 @@ test_that("Optimize improves return target", {
     p1 %>% get_cash
   )
 
+  # Test that trade ids align to holding ids
+  trade_ids <- po_opt$trades %>%
+    filter(type == "sell") %>%
+    select(symbol, id) %>%
+    mutate_at("symbol", as.character) %>% 
+    inner_join(p1$holdings %>%
+                 select(symbol, id) %>%
+                 mutate_at("symbol", as.character),
+               by = "symbol")
+  expect_equal(trade_ids$id.x, trade_ids$id.y)
+  expect_equal(nrow(trade_ids), nrow(filter(po_opt$trades, type == "sell")))
 })
 
 
