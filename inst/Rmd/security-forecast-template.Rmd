@@ -23,7 +23,7 @@ t1 <- Sys.time()
 lib_path <- .libPaths()[1]
 
 # R packages
-packages <- c("a2munge", "a2modeler", "a2charter", "dplyr", "tidyr", "readxl", "tibble", "purrr", "ggplot2", "forcats", "stringr", "lubridate", "sparklyr", "rlang", "madstork", "madstork.opt", "here")
+packages <- c("a2munge", "a2modeler", "a2charter", "dplyr", "tidyr", "readxl", "tibble", "purrr", "ggplot2", "forcats", "stringr", "lubridate", "sparklyr", "rlang", "madstork", "madstork.opt", "here", "ggrepel")
 
 
 ```
@@ -550,11 +550,10 @@ preds_sum <- preds %>%
 
 preds_sum %>%
     gather(key = "metric", value = "return", -symbol, -`Std Dev`) %>% 
-    ggplot(aes(x=`Std Dev`)) +
-    geom_point(aes(y=return, color = symbol), shape = 16, size = 4) +
-    geom_label(aes(y=return, color = symbol, label = symbol),
-               nudge_x = .0075, nudge_y = .01) +
-    geom_abline(linetype = 5, color = "grey75") +
+    ggplot(aes(x=`Std Dev`, y=`return`))) +
+    geom_point(color = "red", size = 2) +
+    geom_text_repel() +
+    geom_hline(linetype = 5, color = "grey75", yintercept = mkt_preds$predicted) +
     facet_wrap(~metric, ncol = 2) +
     theme_sncr() +
     guides(color = FALSE, label = FALSE) +
@@ -586,7 +585,7 @@ current_pred_path <- here("data", "predictions", file_name)
 saveRDS(est, file = current_pred_path)
 ```
 
-* Current estimates written to file here: _`r print(current_pred_path)`_
+* Current estimates written to file here: _`r current_pred_path`_
 
 
 ## Configuration

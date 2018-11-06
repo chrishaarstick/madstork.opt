@@ -23,7 +23,7 @@ t1 <- Sys.time()
 lib_path <- .libPaths()[1]
 
 # R packages
-packages <- c("a2munge", "a2modeler", "a2charter", "dplyr", "tidyr", "readxl", "tibble", "purrr", "ggplot2", "forcats", "stringr", "lubridate", "rlang", "madstork", "madstork.opt", "here", "knitr", "DT")
+packages <- c("a2munge", "a2modeler", "a2charter", "dplyr", "tidyr", "readxl", "tibble", "purrr", "ggplot2", "forcats", "stringr", "lubridate", "rlang", "madstork", "madstork.opt", "here", "knitr", "DT", "ggrepel")
 
 
 ```
