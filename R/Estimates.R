@@ -414,7 +414,7 @@ get_estimated_port_market_value <- function(pobj, eobj) {
 get_estimated_port_stats <- function(pobj, eobj, port_only = FALSE) {
   checkmate::assert_class(pobj, "portfolio")
   checkmate::assert_class(eobj, "estimates")
-  checkmate::assert_subset(pobj$holdings$symbol, eobj$symbols)
+  checkmate::assert_subset(as.character(pobj$holdings$symbol), eobj$symbols)
   
   mu <- madstork::get_holdings_market_value(pobj) %>%
     dplyr::select(symbol, investments_share, portfolio_share) %>%
