@@ -120,7 +120,7 @@ get_sell_trades <- function(pobj,
     h1 <- holdings[i,]
     if (amount > h1$market_value) {
       if (partial) {
-        s1 <- as.data.frame(sell(
+        s1 <- madstork::to_tibble(sell(
           date = Sys.Date(),
           symbol = as.character(h1$symbol),
           quantity = h1$quantity,
@@ -131,7 +131,7 @@ get_sell_trades <- function(pobj,
       }
     } else{
       quantity <- amount %/% (h1$price * lot_size) * lot_size
-      s1 <- as.data.frame(sell(
+      s1 <- madstork::to_tibble(sell(
         date = Sys.Date(),
         symbol = as.character(h1$symbol),
         quantity = quantity,
@@ -184,7 +184,7 @@ get_buy_trades.data.frame <- function(obj,
       .$price
     quantity <- amount %/% (price * lot_size) * lot_size
     b1 <- buy(date = Sys.Date(), symbol = sym, quantity = quantity, price = price)
-    buys <- rbind(buys, as.data.frame(b1))
+    buys <- rbind(buys, madstork::to_tibble(b1))
   }
   buys
 }
@@ -214,7 +214,7 @@ get_buy_trades.estimates <- function(obj,
       .$price
     quantity <- amount %/% (price * lot_size) * lot_size
     b1 <- buy(date = Sys.Date(), symbol = sym, quantity = quantity, price = price)
-    buys <- rbind(buys, as.data.frame(b1))
+    buys <- rbind(buys, madstork::to_tibble(b1))
   }
   buys
 }
@@ -244,7 +244,7 @@ get_buy_trades.portfolio <- function(obj,
       .$price
     quantity <- amount %/% (price * lot_size) * lot_size
     b1 <- buy(date = Sys.Date(), symbol = sym, quantity = quantity, price = price)
-    buys <- rbind(buys, as.data.frame(b1))
+    buys <- rbind(buys, madstork::to_tibble(b1))
   }
   buys
 }
@@ -263,7 +263,7 @@ get_buy_trades.character <- function(obj,
     price <- get_current_prices(sym)[["price"]]
     quantity <- amount %/% (price * lot_size) * lot_size
     b1 <- buy(date = Sys.Date(), symbol = sym, quantity = quantity, price = price)
-    buys <- rbind(buys, as.data.frame(b1))
+    buys <- rbind(buys, madstork::to_tibble(b1))
   }
   buys
 }

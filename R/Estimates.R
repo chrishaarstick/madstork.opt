@@ -414,8 +414,8 @@ get_estimated_port_market_value <- function(pobj, eobj) {
 get_estimated_port_stats <- function(pobj, eobj, port_only = FALSE) {
   checkmate::assert_class(pobj, "portfolio")
   checkmate::assert_class(eobj, "estimates")
-  checkmate::assert_subset(pobj$holdings$symbols, eobj$symbols)
-
+  checkmate::assert_subset(pobj$holdings$symbol, eobj$symbols)
+  
   mu <- madstork::get_holdings_market_value(pobj) %>%
     dplyr::select(symbol, investments_share, portfolio_share) %>%
     tidyr::gather(key="type", value="mu", -symbol) %>%
@@ -426,7 +426,7 @@ get_estimated_port_stats <- function(pobj, eobj, port_only = FALSE) {
     dplyr::summarise_at("mu", dplyr::funs(sum(. * return))) %>%
     dplyr::mutate(type = gsub("_share", "", type)) %>%
     dplyr::ungroup()
-
+  
   ehmv <- get_holdings_market_value(pobj) %>%
     dplyr::right_join(tibble(symbol = eobj$symbols), by = "symbol") %>%
     dplyr::mutate(symbol = factor(symbol, levels = eobj$symbols)) %>%
@@ -434,21 +434,27 @@ get_estimated_port_stats <- function(pobj, eobj, port_only = FALSE) {
     dplyr::group_by(symbol) %>%
     dplyr::summarise_at(c("investments_share", "portfolio_share"), sum, na.rm = TRUE) %>%
     dplyr::ungroup()
+  
   ps <- ehmv$portfolio_share
   is <- ehmv$investments_share
-  sd <- tibble(type = as.character(c("investments", "portfolio")),
-               sd = as.numeric(c(sqrt(is %*% get_sigma(eobj) %*% is),
-                                 sqrt(ps %*% get_sigma(eobj) %*% ps))))
-
+  sd <- tibble::tibble(
+    type = as.character(c("investments", "portfolio")),
+    sd = as.numeric(c(
+      sqrt(is %*% get_sigma(eobj) %*% is),
+      sqrt(ps %*% get_sigma(eobj) %*% ps)))
+  )
+  
   pmv <- tail(get_market_value(pobj), 1)
-  yield <- tibble(type = as.character(c("investments", "portfolio")),
-                      yield = c(pmv$investments_annual_income/pmv$investments_value,
-                                pmv$investments_annual_income/pmv$net_value))
-
+  yield <- tibble(
+    type = as.character(c("investments", "portfolio")),
+    yield = c(pmv$investments_annual_income/pmv$investments_value,
+              pmv$investments_annual_income/pmv$net_value)
+  )
+  
   pstats <- dplyr::inner_join(mu, sd, by="type") %>%
     dplyr::mutate(sharpe = mu/sd) %>%
     dplyr::inner_join(yield, by = "type")
-
+  
   if(port_only) {
     pstats %>%
       dplyr::filter(type == "portfolio")

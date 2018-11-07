@@ -153,7 +153,7 @@ filter_constraints <- function(constraints, index) {
 #' @param portfolio portfolio object
 #' @param estimates estimates object
 #'
-#' @return data.frame with summary of constraint checks
+#' @return tibble with summary of constraint checks
 #' @export
 check_constraints <- function(constraints, portfolio, estimates) {
   checkmate::assert_class(constraints, "constraints")
@@ -712,7 +712,7 @@ check_constraint.cardinality_constraint <- function(constraint,
     dplyr::filter(portfolio_share > 0) %>%
     nrow()
   check <- ifelse(n < constraint$min | n > constraint$max, FALSE, TRUE)
-  data.frame(
+  tibble::tibble(
     type = constraint$type,
     args = "",
     min = constraint$min,
@@ -872,7 +872,7 @@ check_constraint.group_constraint <- function(constraint,
     dplyr::summarise_at("portfolio_share", sum) %>%
     .$portfolio_share
   check <- ifelse(share < constraint$min | share > constraint$max, FALSE, TRUE)
-  data.frame(
+  tibble::tibble(
     type = constraint$type,
     args = paste(constraint$args, collapse = ","),
     min = constraint$min,
@@ -1060,7 +1060,7 @@ check_constraint.performance_constraint <- function(constraint,
   stat <- stats[[constraint$args]]
   check <- ifelse(stat < constraint$min |
                     stat > constraint$max, FALSE, TRUE)
-  data.frame(
+  tibble::tibble(
     type = constraint$type,
     args = constraint$args,
     min = constraint$min,
