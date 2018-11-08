@@ -547,7 +547,7 @@ optimize <- function(obj,
                             minimize = .minimize,
                             amount =  amount,
                             lot_size = lot_size,
-                            max_iter = 10)
+                            max_iter = max_iter)
 
     # Update Obj
     if(nrow(get_trades(port)) > nrow(get_trades(obj$optimal_portfolio))) {
