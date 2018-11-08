@@ -4,10 +4,10 @@
 \alias{add_min_yield}
 \title{Add Minimum Yield Performance Constraint to Contraints Object}
 \usage{
-add_min_yield(constraints, min = NULL)
+add_min_yield(cobj, min = NULL)
 }
 \arguments{
-\item{constraints}{constraints object}
+\item{cobj}{constraints object}
 
 \item{min}{minumum yield value}
 }

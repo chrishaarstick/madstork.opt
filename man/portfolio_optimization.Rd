@@ -4,15 +4,15 @@
 \alias{portfolio_optimization}
 \title{Portfolio Optimization Constructor Function}
 \usage{
-portfolio_optimization(portfolio, estimates, constraints, prices = NULL,
-  target, desc = "", version = 1)
+portfolio_optimization(pobj, eobj, cobj, prices = NULL, target,
+  desc = "", version = 1)
 }
 \arguments{
-\item{portfolio}{portfolio object}
+\item{pobj}{portfolio object}
 
-\item{estimates}{estimates object}
+\item{eobj}{estimates object}
 
-\item{constraints}{constraints object}
+\item{cobj}{constraints object}
 
 \item{prices}{current symbol prices}
 

@@ -57,9 +57,9 @@ test_that("Meet Constraints optimization meets all buy symbol constrainsts", {
   # Meet Symbols
   c1.1 <- filter_constraints(c1, 1)
   p1.1 <- meet_constraint(c1.1$constraints[[1]],
-                          portfolio = p1,
-                          constraints = c1.1,
-                          estimates = e1,
+                          pobj = p1,
+                          cobj = c1.1,
+                          eobj = e1,
                           prices = prices,
                           trade_pairs = po$trade_pairs,
                           target = .target,
@@ -72,9 +72,9 @@ test_that("Meet Constraints optimization meets all buy symbol constrainsts", {
 
   c1.2 <- filter_constraints(c1, 2)
   p1.2 <- meet_constraint(c1.2$constraints[[1]],
-                          portfolio = p1.1,
-                          constraints = filter_constraints(c1, 1),
-                          estimates = e1,
+                          pobj = p1.1,
+                          cobj = filter_constraints(c1, 1),
+                          eobj = e1,
                           prices = prices,
                           trade_pairs = po$trade_pairs,
                           target = .target,
@@ -87,9 +87,9 @@ test_that("Meet Constraints optimization meets all buy symbol constrainsts", {
 
   c1.3 <- filter_constraints(c1, 3)
   p1.3 <- meet_constraint(c1.3$constraints[[1]],
-                          portfolio = p1.2,
-                          constraints = filter_constraints(c1, 1:2),
-                          estimates = e1,
+                          pobj = p1.2,
+                          cobj = filter_constraints(c1, 1:2),
+                          eobj = e1,
                           prices = prices,
                           trade_pairs = po$trade_pairs,
                           target = .target,
@@ -103,9 +103,9 @@ test_that("Meet Constraints optimization meets all buy symbol constrainsts", {
 
   c1.4 <- filter_constraints(c1, 4)
   p1.4 <- meet_constraint(c1.4$constraints[[1]],
-                          portfolio = p1.3,
-                          constraints = filter_constraints(c1, 1:3),
-                          estimates = e1,
+                          pobj = p1.3,
+                          cobj = filter_constraints(c1, 1:3),
+                          eobj = e1,
                           prices = prices,
                           trade_pairs = po$trade_pairs,
                           target = .target,
@@ -134,9 +134,9 @@ test_that("Meet Constraints optimization meets sell symbol constraints", {
   # Meet Symbols
   c2.1 <- filter_constraints(c2, 1)
   p2.1 <- meet_constraint(c2.1$constraints[[1]],
-                          portfolio = p1,
-                          constraints = filter_constraints(c2, 0),
-                          estimates = e1,
+                          pobj = p1,
+                          cobj = filter_constraints(c2, 0),
+                          eobj = e1,
                           prices = prices,
                           trade_pairs = po$trade_pairs,
                           target = .target,
@@ -165,9 +165,9 @@ test_that("Meet Constraints optimization meets cash constrainsts", {
   # Meet Cash
   c3.1 <- filter_constraints(c3, 1)
   p3.1 <- meet_constraint(c3.1$constraints[[1]],
-                          portfolio = p1,
-                          constraints = filter_constraints(c3, 0),
-                          estimates = e1,
+                          pobj = p1,
+                          cobj = filter_constraints(c3, 0),
+                          eobj = e1,
                           prices = prices,
                           trade_pairs = po$trade_pairs,
                           target = .target,
@@ -196,9 +196,9 @@ test_that("Meet Constraints optimization meets cardinality constrainsts", {
   # Meet Cardinality
   c4.1 <- filter_constraints(c4, 1)
   p4.1 <- meet_constraint(c4.1$constraints[[1]],
-                          portfolio = p1,
-                          constraints = filter_constraints(c4, 0),
-                          estimates = e1,
+                          pobj = p1,
+                          cobj = filter_constraints(c4, 0),
+                          eobj = e1,
                           prices = prices,
                           trade_pairs = po$trade_pairs,
                           target = .target,
@@ -214,9 +214,9 @@ test_that("Meet Constraints optimization meets cardinality constrainsts", {
 
   c4a.1 <- filter_constraints(c4a, 1)
   p4a.1 <- meet_constraint(c4a.1$constraints[[1]],
-                           portfolio = p4.1,
-                           constraints = filter_constraints(c4a, 0),
-                           estimates = e1,
+                           pobj = p4.1,
+                           cobj = filter_constraints(c4a, 0),
+                           eobj = e1,
                            prices = prices,
                            trade_pairs = po$trade_pairs,
                            target = .target,
@@ -233,9 +233,9 @@ test_that("Meet Constraints optimization meets cardinality constrainsts", {
 
   c4b.1 <- filter_constraints(c4b, 1)
   p4b.1 <- meet_constraint(c4b.1$constraints[[1]],
-                           portfolio = p1,
-                           constraints = filter_constraints(c4b, 0),
-                           estimates = e1,
+                           pobj = p1,
+                           cobj = filter_constraints(c4b, 0),
+                           eobj = e1,
                            prices = prices,
                            trade_pairs = po$trade_pairs,
                            target = .target,
@@ -263,9 +263,9 @@ test_that("Meet Constraints optimization meets group constrainsts", {
   # Meet Cardinality
   c5.1 <- filter_constraints(c5, 1)
   p5.1 <- meet_constraint(c5.1$constraints[[1]],
-                          portfolio = p1,
-                          constraints = filter_constraints(c5, 0),
-                          estimates = e1,
+                          pobj = p1,
+                          cobj = filter_constraints(c5, 0),
+                          eobj = e1,
                           prices = prices,
                           trade_pairs = po$trade_pairs,
                           target = .target,
@@ -295,9 +295,9 @@ test_that("Meet Constraints optimization meets performance constrainsts", {
   # Meet performance
   c6.1 <- filter_constraints(c6, 1)
   p6.1 <- meet_constraint(c6.1$constraints[[1]],
-                          portfolio = p1,
-                          constraints = filter_constraints(c6, 0),
-                          estimates = e1,
+                          pobj = p1,
+                          cobj = filter_constraints(c6, 0),
+                          eobj = e1,
                           prices = prices,
                           trade_pairs = po$trade_pairs,
                           target = .target,
@@ -320,9 +320,9 @@ test_that("Meet Constraints optimization meets performance constrainsts", {
   # Meet performance
   c6a.1 <- filter_constraints(c6a, 1)
   p6a.1 <- meet_constraint(c6a.1$constraints[[1]],
-                           portfolio = p1,
-                           constraints = filter_constraints(c6a, 0),
-                           estimates = e1,
+                           pobj = p1,
+                           cobj = filter_constraints(c6a, 0),
+                           eobj = e1,
                            prices = prices,
                            trade_pairs = po$trade_pairs,
                            target = .target,
@@ -332,5 +332,23 @@ test_that("Meet Constraints optimization meets performance constrainsts", {
                            max_iter = 5)
   cc6a.1 <- check_constraints(c6a, p6a.1, e1)
   expect_true(cc6a.1$check[1])
+})
+
+
+test_that("Set trade symbols functionality works as expected", {
+  
+  .target <- "return"
+  
+  # Create Constraints
+  c7 <- constraints(symbols = e1$symbols) %>%
+    add_symbol_constraint(max = .5) %>% 
+    set_buy_symbols(c("SPY", "QQQ")) %>% 
+    set_sell_symbols(c("GLD", "TLT"))
+  
+  # Create Optimization
+  po <- portfolio_optimization(p1, e1, c7, prices, target = .target)
+  
+  expect_equal(sort(unique(po$trade_pairs$sell)), c("CASH", "GLD", "TLT"))
+  expect_equal(sort(unique(po$trade_pairs$buy)), c("CASH", "QQQ", "SPY"))
 })
 

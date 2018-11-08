@@ -4,10 +4,10 @@
 \alias{add_constraint}
 \title{Add Constraint to Constraints Object}
 \usage{
-add_constraint(constraints, constraint)
+add_constraint(cobj, constraint)
 }
 \arguments{
-\item{constraints}{constraints object}
+\item{cobj}{constraints object}
 
 \item{constraint}{constraint object}
 }

@@ -4,12 +4,12 @@
 \alias{select_optimal_portfolio}
 \title{Select Optimal Portfolio}
 \usage{
-select_optimal_portfolio(portfolios, estimates, target, criteria)
+select_optimal_portfolio(portfolios, eobj, target, criteria)
 }
 \arguments{
 \item{portfolios}{list of portfolio objects}
 
-\item{estimates}{estimates object}
+\item{eobj}{estimates object}
 
 \item{target}{target objective}
 

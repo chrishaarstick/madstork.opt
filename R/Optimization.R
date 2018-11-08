@@ -7,9 +7,9 @@
 #' Create a portfolio optimization object. Portfolio optimization objects can be
 #' optimized with the optimize functions.
 #'
-#' @param portfolio portfolio object
-#' @param estimates estimates object
-#' @param constraints constraints object
+#' @param pobj portfolio object
+#' @param eobj estimates object
+#' @param cobj constraints object
 #' @param prices current symbol prices
 #' @param target target objective
 #' @param desc optional meta-data description input
@@ -18,27 +18,28 @@
 #' @return portfolio_optimization class
 #' @export
 #' @import tidyverse
-portfolio_optimization <- function(portfolio,
-                                   estimates,
-                                   constraints,
+portfolio_optimization <- function(pobj,
+                                   eobj,
+                                   cobj,
                                    prices = NULL,
                                    target,
                                    desc = "",
                                    version = 1.0) {
-  checkmate::assert_class(portfolio, "portfolio")
-  checkmate::assert_class(estimates, "estimates")
-  checkmate::assert_class(constraints, "constraints")
+  checkmate::assert_class(pobj, "portfolio")
+  checkmate::assert_class(eobj, "estimates")
+  checkmate::assert_class(cobj, "constraints")
   checkmate::assert_data_frame(prices, null.ok = TRUE)
   checkmate::assert_choice(target, c("mu", "sd", "yield", "return", "risk", "sharpe", "income"))
   checkmate::assert_character(desc)
   checkmate::assert_number(version)
 
   # Check symbols
-  symbols <- estimates$symbols
-  checkmate::assert_subset(unique(as.character(portfolio$holdings$symbol)), symbols)
+  symbols <- eobj$symbols
+  holding_symbols <- unique(as.character(pobj$holdings$symbol))
+  checkmate::assert_subset(holding_symbols, symbols)
 
   if(is.null(prices)) {
-    prices <- get_current_prices(symbols = symbols)
+    prices <- get_current_prices(symbols = symbols, dividends = TRUE)
   }
   checkmate::assert_subset(c("symbol", "price", "dividend"), colnames(prices))
 
@@ -49,16 +50,21 @@ portfolio_optimization <- function(portfolio,
     target == "income" ~ "yield",
     TRUE ~ as.character(target)
     )
-  tp <- trade_pairs(portfolio, estimates, constraints, .target)
-  port_values <- get_estimated_port_values(portfolio, estimates) %>%
+  
+  # Set sell symbols
+  constraint_sell_symbols <- intersect(cobj$trade_symbols$sell_symbols, holding_symbols)
+  cobj <- set_sell_symbols(cobj, constraint_sell_symbols)
+  
+  tp <- trade_pairs(eobj, cobj, .target)
+  port_values <- get_estimated_port_values(pobj, eobj) %>%
     dplyr::mutate(iter = 0)
 
   structure(
     list(
-      portfolios = list(portfolio),
-      optimal_portfolio = portfolio,
-      estimates = estimates,
-      constraints = constraints,
+      portfolios = list(pobj),
+      optimal_portfolio = pobj,
+      estimates = eobj,
+      constraints = cobj,
       prices = prices,
       target = target,
       criteria = criteria,
@@ -272,39 +278,30 @@ get_buy_trades.character <- function(obj,
 
 #' Create Trade Pairs Function
 #'
-#' Given portfolio, estimates, and target creates a data.frame of possible trade
-#' pairs with expected target impact (delta)
+#' Given estimates, and target creates an expanded grid of possible trade pairs
+#' with expected target impact (delta)
 #'
 #' @inheritParams portfolio_optimization
 #'
-#' @return trade pairs data.frame
-#' 
+#' @return trade pairs tibble
+#'
 #' @importFrom magrittr %>%
 #' @export
-trade_pairs <- function(portfolio, estimates, constraints, target){
-  checkmate::assert_class(portfolio, "portfolio")
-  checkmate::assert_class(estimates, "estimates")
+trade_pairs <- function(eobj, cobj, target){
+  checkmate::assert_class(eobj, "estimates")
+  checkmate::assert_class(cobj, "constraints")
   checkmate::assert_choice(target, c("mu", "sd", "sharpe", "yield"))
 
-  est_stats <- get_estimates_stats(estimates) %>%
+  est_stats <- get_estimates_stats(eobj) %>%
     dplyr::select_at(c("symbol", target))
   
-  holdings <- portfolio$holdings
-  if (nrow(holdings) > 0) {
-    sell_syms <-  c("CASH", intersect(unique(as.character(holdings$symbol)),
-                                      as.character(constraints$symbols)))
-  } else {
-    sell_syms <-  "CASH"
-  }  
-
-  buy_syms <- c("CASH", intersect(as.character(estimates$symbols),
-                                  as.character(constraints$symbols)))
+  buy_syms <- c("CASH", cobj$trade_symbols$buy_symbols)
+  sell_syms <- c("CASH", cobj$trade_symbols$sell_symbols)
   
   expand.grid(buy = buy_syms, sell = sell_syms) %>%
     dplyr::mutate_all(as.character) %>%
     dplyr::filter(buy != sell) %>%
     dplyr::mutate(id = row_number()) %>%
-    dplyr::mutate_at(c("buy", "sell"), as.character) %>%
     dplyr::select(id, buy, sell) %>%
     dplyr::left_join(est_stats, by = c("buy" = "symbol")) %>%
     dplyr::left_join(est_stats, by = c("sell" = "symbol")) %>%
@@ -314,7 +311,8 @@ trade_pairs <- function(portfolio, estimates, constraints, target){
                   selected = 0,
                   trades   = 0,
                   active = TRUE) %>%
-    dplyr::arrange(-delta)
+    dplyr::arrange(-delta) %>% 
+    to_tibble()
 }
 
 
@@ -325,7 +323,7 @@ trade_pairs <- function(portfolio, estimates, constraints, target){
 #'
 #' @param buy buy symbol to buy
 #' @param sell sell symbol
-#' @param portfolio portfolio object
+#' @param pobj portfolio object
 #' @param prices current prices of symbols being traded
 #' @param amount trade amount
 #' @param lot_size min lot size
@@ -334,12 +332,12 @@ trade_pairs <- function(portfolio, estimates, constraints, target){
 #' @export
 execute_trade_pair <- function(buy,
                                sell,
-                               portfolio,
+                               pobj,
                                prices,
                                amount,
                                lot_size = 1) {
 
-  port <- portfolio
+  port <- pobj
   if (sell != "CASH") {
     sells <- get_sell_trades(port, as.character(sell), amount, lot_size)
     for (i in 1:nrow(sells)) {
@@ -433,7 +431,7 @@ nbto <- function(pobj,
 
   # Check Canidates Constraints
   port_evals <- port_canidates %>%
-    purrr::map(~ check_constraints(cobj, portfolio = ., estimates = eobj)) %>%
+    purrr::map(~ check_constraints(cobj, pobj = ., eobj = eobj)) %>%
     purrr::map_lgl(~ ifelse(nrow(.) == 0, TRUE, all(.$check)))
 
   # Only select canidates that meet constraints
@@ -540,9 +538,9 @@ optimize <- function(obj,
     # Meet constraint
     constraint <- filter_constraints(obj$constraints, n)
     port <- meet_constraint(constraint$constraints[[1]],
-                            portfolio = obj$optimal_portfolio,
-                            constraints = filter_constraints(obj$constraints, n_idx),
-                            estimates = obj$estimates,
+                            pobj = obj$optimal_portfolio,
+                            cobj = filter_constraints(obj$constraints, n_idx),
+                            eobj = obj$estimates,
                             prices = obj$prices,
                             trade_pairs = obj$trade_pairs,
                             target = obj$target,
@@ -558,7 +556,10 @@ optimize <- function(obj,
       obj$portfolio_values <- obj$portfolio_values %>%
         rbind(get_estimated_port_values(port, obj$estimates) %>%
                 dplyr::mutate(iter = n + prev_iter))
-      obj$trade_pairs <- trade_pairs(obj$optimal_portfolio, obj$estimates, obj$constraints, .target)
+      holding_symbols <- as.character(unique(port$holdings$symbol))
+      constraint_sell_symbols <- intersect(obj$constraints$trade_symbols$sell_symbols, holding_symbols)
+      obj$constraints <- set_sell_symbols(obj$constraints, constraint_sell_symbols)
+      obj$trade_pairs <- trade_pairs(obj$estimates, obj$constraints, .target)
 
       if(plot_iter) print(po_target_chart(obj))
     }
@@ -737,14 +738,14 @@ optimize <- function(obj,
 #'
 #' @return optimal portfolio object
 #' @export
-select_optimal_portfolio <- function(portfolios, estimates, target, criteria) {
+select_optimal_portfolio <- function(portfolios, eobj, target, criteria) {
   checkmate::assert_list(portfolios)
-  checkmate::assert_class(estimates, "estimates")
+  checkmate::assert_class(eobj, "estimates")
 
   purrr::map_df(
     portfolios,
     get_estimated_port_values,
-    eobj = estimates,
+    eobj = eobj,
     port_only = TRUE,
     .id = "id"
   ) %>%

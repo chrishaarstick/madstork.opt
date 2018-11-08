@@ -4,10 +4,10 @@
 \alias{restrict_trading}
 \title{Restrict Trading Symbols}
 \usage{
-restrict_trading(constraints, symbols)
+restrict_trading(cobj, symbols)
 }
 \arguments{
-\item{constraints}{constraints object}
+\item{cobj}{constraints object}
 
 \item{symbols}{vector of symbols to restict trading}
 }

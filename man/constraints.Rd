@@ -4,13 +4,13 @@
 \alias{constraints}
 \title{Constraints Constructer}
 \usage{
-constraints(symbols, constraints = NULL)
+constraints(symbols, cobj = NULL)
 }
 \arguments{
-\item{symbols}{vector of symbols to apply constraints to. Symbols constrain
-tradable symbols in optimization}
+\item{symbols}{vector of symbols to apply constraints to. Symbols define buy
+and sell symbols}
 
-\item{constraints}{list of contraints}
+\item{cobj}{list of contraints}
 }
 \value{
 constraints object

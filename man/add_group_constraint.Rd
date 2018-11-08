@@ -4,10 +4,10 @@
 \alias{add_group_constraint}
 \title{Add Group Constraint to Constraints Object}
 \usage{
-add_group_constraint(constraints, symbols = NULL, min = 0, max = 1)
+add_group_constraint(cobj, symbols = NULL, min = 0, max = 1)
 }
 \arguments{
-\item{constraints}{constraints object}
+\item{cobj}{constraints object}
 
 \item{symbols}{1 or more symbols}
 

@@ -4,10 +4,10 @@
 \alias{add_cash_constraint}
 \title{Add Cash Constraint to Constraints Object}
 \usage{
-add_cash_constraint(constraints, min = 0, max = 1)
+add_cash_constraint(cobj, min = 0, max = 1)
 }
 \arguments{
-\item{constraints}{constraints object}
+\item{cobj}{constraints object}
 
 \item{min}{minimum constraint value. inclusive}
 
