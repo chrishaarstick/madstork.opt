@@ -1,6 +1,6 @@
 Package: madstork.opt
 Title: MadStork Portfolio Optimization
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: person("Chris", "Haarstick", email = "chrishaarstick@gmail.com", role = c("aut", "cre"))
 Description: Functionality to optimize investment portfolios.   
 Depends: R (>= 3.5.0)
