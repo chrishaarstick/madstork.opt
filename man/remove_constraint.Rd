@@ -4,10 +4,10 @@
 \alias{remove_constraint}
 \title{Remove Constraint from Constraints Object}
 \usage{
-remove_constraint(constraints, index, id = NULL)
+remove_constraint(cobj, index, id = NULL)
 }
 \arguments{
-\item{constraints}{constraints object}
+\item{cobj}{constraints object}
 
 \item{index}{constraint numeric index to remove. reference to position in
 constraints list}

@@ -4,10 +4,10 @@
 \alias{add_symbol_constraint}
 \title{Add Symbol Constraint to Constraints Object}
 \usage{
-add_symbol_constraint(constraints, symbol = NULL, min = 0, max = 1)
+add_symbol_constraint(cobj, symbol = NULL, min = 0, max = 1)
 }
 \arguments{
-\item{constraints}{constraints object}
+\item{cobj}{constraints object}
 
 \item{symbol}{single symbol to constrain}
 

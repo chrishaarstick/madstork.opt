@@ -4,17 +4,17 @@
 \alias{check_constraints}
 \title{Check Constraints}
 \usage{
-check_constraints(constraints, portfolio, estimates)
+check_constraints(cobj, pobj, eobj)
 }
 \arguments{
-\item{constraints}{constraints object}
+\item{cobj}{constraints object}
 
-\item{portfolio}{portfolio object}
+\item{pobj}{portfolio object}
 
-\item{estimates}{estimates object}
+\item{eobj}{estimates object}
 }
 \value{
-data.frame with summary of constraint checks
+tibble with summary of constraint checks
 }
 \description{
 Check the validity of portfolio against constraints.

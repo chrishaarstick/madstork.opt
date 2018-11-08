@@ -4,21 +4,19 @@
 \alias{trade_pairs}
 \title{Create Trade Pairs Function}
 \usage{
-trade_pairs(portfolio, estimates, constraints, target)
+trade_pairs(eobj, cobj, target)
 }
 \arguments{
-\item{portfolio}{portfolio object}
+\item{eobj}{estimates object}
 
-\item{estimates}{estimates object}
-
-\item{constraints}{constraints object}
+\item{cobj}{constraints object}
 
 \item{target}{target objective}
 }
 \value{
-trade pairs data.frame
+trade pairs tibble
 }
 \description{
-Given portfolio, estimates, and target creates a data.frame of possible trade
-pairs with expected target impact (delta)
+Given estimates, and target creates an expanded grid of possible trade pairs
+with expected target impact (delta)
 }

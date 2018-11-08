@@ -9,37 +9,37 @@
 \alias{meet_constraint.performance_constraint}
 \title{Meet Constraint}
 \usage{
-meet_constraint(constraint, portfolio, constraints, estimates, prices,
-  trade_pairs, minimize, target, amount, lot_size, max_iter, ...)
+meet_constraint(constraint, pobj, cobj, eobj, prices, trade_pairs,
+  minimize, target, amount, lot_size, max_iter, ...)
 
-\method{meet_constraint}{symbol_constraint}(constraint, portfolio,
-  constraints, estimates, prices, trade_pairs, target, minimize, amount,
-  lot_size, max_iter = 5, ...)
+\method{meet_constraint}{symbol_constraint}(constraint, pobj, cobj, eobj,
+  prices, trade_pairs, target, minimize, amount, lot_size, max_iter = 5,
+  ...)
 
-\method{meet_constraint}{cash_constraint}(constraint, portfolio,
-  constraints, estimates, prices, trade_pairs, target, minimize, amount,
-  lot_size, max_iter = 5, ...)
+\method{meet_constraint}{cash_constraint}(constraint, pobj, cobj, eobj,
+  prices, trade_pairs, target, minimize, amount, lot_size, max_iter = 5,
+  ...)
 
-\method{meet_constraint}{cardinality_constraint}(constraint, portfolio,
-  constraints, estimates, prices, trade_pairs, target, minimize, amount,
-  lot_size, max_iter = 5, ...)
+\method{meet_constraint}{cardinality_constraint}(constraint, pobj, cobj,
+  eobj, prices, trade_pairs, target, minimize, amount, lot_size,
+  max_iter = 5, ...)
 
-\method{meet_constraint}{group_constraint}(constraint, portfolio,
-  constraints, estimates, prices, trade_pairs, target, minimize, amount,
-  lot_size, max_iter = 5, ...)
+\method{meet_constraint}{group_constraint}(constraint, pobj, cobj, eobj,
+  prices, trade_pairs, target, minimize, amount, lot_size, max_iter = 5,
+  ...)
 
-\method{meet_constraint}{performance_constraint}(constraint, portfolio,
-  constraints, estimates, prices, trade_pairs, target, minimize, amount,
-  lot_size, max_iter = 5, ...)
+\method{meet_constraint}{performance_constraint}(constraint, pobj, cobj,
+  eobj, prices, trade_pairs, target, minimize, amount, lot_size,
+  max_iter = 5, ...)
 }
 \arguments{
 \item{constraint}{constraint object}
 
-\item{portfolio}{portfolio object}
+\item{pobj}{portfolio object}
 
-\item{constraints}{constraints object}
+\item{cobj}{constraints object}
 
-\item{estimates}{estimates object}
+\item{eobj}{estimates object}
 
 \item{prices}{current symbol prices}
 

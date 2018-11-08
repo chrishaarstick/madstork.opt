@@ -4,10 +4,10 @@
 \alias{filter_constraints}
 \title{Function to filter Constraints by index}
 \usage{
-filter_constraints(constraints, index)
+filter_constraints(cobj, index)
 }
 \arguments{
-\item{constraints}{constraints object}
+\item{cobj}{constraints object}
 
 \item{index}{numeric index to filter constraints by}
 }

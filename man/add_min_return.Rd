@@ -4,10 +4,10 @@
 \alias{add_min_return}
 \title{Add Minimum Return Performance Constraint to Contraints Object}
 \usage{
-add_min_return(constraints, min = NULL)
+add_min_return(cobj, min = NULL)
 }
 \arguments{
-\item{constraints}{constraints object}
+\item{cobj}{constraints object}
 
 \item{min}{minumum return value}
 }

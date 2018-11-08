@@ -4,10 +4,10 @@
 \alias{add_max_risk}
 \title{Add Maximum Risk Performance Constraint to Contraints Object}
 \usage{
-add_max_risk(constraints, max = NULL)
+add_max_risk(cobj, max = NULL)
 }
 \arguments{
-\item{constraints}{constraints object}
+\item{cobj}{constraints object}
 
 \item{max}{maximum risk value}
 }

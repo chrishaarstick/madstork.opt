@@ -4,14 +4,14 @@
 \alias{execute_trade_pair}
 \title{Execute Trade Pair Function}
 \usage{
-execute_trade_pair(buy, sell, portfolio, prices, amount, lot_size = 1)
+execute_trade_pair(buy, sell, pobj, prices, amount, lot_size = 1)
 }
 \arguments{
 \item{buy}{buy symbol to buy}
 
 \item{sell}{sell symbol}
 
-\item{portfolio}{portfolio object}
+\item{pobj}{portfolio object}
 
 \item{prices}{current prices of symbols being traded}
 

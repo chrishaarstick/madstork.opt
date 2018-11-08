@@ -4,10 +4,10 @@
 \alias{get_constraints}
 \title{Get Constraints}
 \usage{
-get_constraints(constraints, type = NULL, id = NULL)
+get_constraints(cobj, type = NULL, id = NULL)
 }
 \arguments{
-\item{constraints}{constraints object}
+\item{cobj}{constraints object}
 
 \item{type}{type of constraint. valid types are symbol, cardinality, group
 and performance}

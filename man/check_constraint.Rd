@@ -9,28 +9,28 @@
 \alias{check_constraint.performance_constraint}
 \title{Check Constraint}
 \usage{
-check_constraint(constraint, portfolio = NULL, holdings = NULL,
+check_constraint(constraint, pobj = NULL, holdings = NULL,
   stats = NULL, ...)
 
-\method{check_constraint}{symbol_constraint}(constraint,
-  portfolio = NULL, holdings, stats = NULL, ...)
+\method{check_constraint}{symbol_constraint}(constraint, pobj = NULL,
+  holdings, stats = NULL, ...)
 
-\method{check_constraint}{cash_constraint}(constraint, portfolio,
+\method{check_constraint}{cash_constraint}(constraint, pobj,
   holdings = NULL, stats = NULL, ...)
 
 \method{check_constraint}{cardinality_constraint}(constraint,
-  portfolio = NULL, holdings, stats = NULL, ...)
+  pobj = NULL, holdings, stats = NULL, ...)
 
-\method{check_constraint}{group_constraint}(constraint, portfolio = NULL,
+\method{check_constraint}{group_constraint}(constraint, pobj = NULL,
   holdings, stats = NULL, ...)
 
 \method{check_constraint}{performance_constraint}(constraint,
-  portfolio = NULL, holdings = NULL, stats, ...)
+  pobj = NULL, holdings = NULL, stats, ...)
 }
 \arguments{
 \item{constraint}{constraint object}
 
-\item{portfolio}{portfolio object}
+\item{pobj}{portfolio object}
 
 \item{holdings}{portfolio holdings}
 

@@ -4,10 +4,10 @@
 \alias{add_cardinality_constraint}
 \title{Add Cardinality Constraint to Constraints Object}
 \usage{
-add_cardinality_constraint(constraints, min = 0, max = NULL)
+add_cardinality_constraint(cobj, min = 0, max = NULL)
 }
 \arguments{
-\item{constraints}{constraints object}
+\item{cobj}{constraints object}
 
 \item{min}{minimum constraint value. inclusive}
 
