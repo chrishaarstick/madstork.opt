@@ -340,38 +340,67 @@ execute_trade_pair <- function(buy,
   port <- pobj
   if (sell != "CASH") {
     sells <- get_sell_trades(port, as.character(sell), amount, lot_size)
-    for (i in 1:nrow(sells)) {
-      sell <- sells[i, ]
-      port <- make_sell(
-        port,
-        id = sell$id,
-        quantity = sell$quantity,
-        price = sell$price
-      )
-    }
-    port <- update_market_value(port, prices)
+    port <- execute_sell(sells, port, prices)
   }
-
+  
   if(buy != "CASH") {
     amount <- min(amount, port$cash)
     buy <- get_buy_trades(prices, as.character(buy), amount, lot_size)
-    port <- make_buy(
-      port,
-      symbol = as.character(buy$symbol),
-      quantity = buy$quantity,
-      price = buy$price
-    )
-
-    port <- update_market_value(port, prices)
+    port <- execute_buy(buy, port, prices)
   }
 
   port
 }
 
 
+#' Execute Buy Trade Function
+#'
+#' Updates portfolio with buy trade provided
+#'
+#' @param buy data.frame with buy trade information. Result of get_buy_trades
+#'   function
+#' @inheritParams execute_trade_pair
+#'
+#' @return updated portfolio object
+#' @export
+execute_buy <- function(buy, pobj, prices) {
+  checkmate::assert_data_frame(buy)
+  checkmate::assert_class(pobj, "portfolio")
+  
+  pobj %>% 
+    make_buy(.,
+             symbol = as.character(buy$symbol),
+             quantity = buy$quantity,
+             price = buy$price) %>% 
+    update_market_value(prices)
+}
 
 
+#' Execute Sell Trade Function
+#'
+#' Updates portfolio with sell trade provided
+#'
+#' @param sell data.frame with sell trade information. Result of get_sell_trades
+#'   function
+#' @inheritParams execute_trade_pair
+#'
+#' @return updated portfolio object
+#' @export
+execute_sell <- function(sell, pobj, prices) {
+  checkmate::assert_data_frame(sell)
+  checkmate::assert_class(pobj, "portfolio")
+  
+  for (i in 1:nrow(sell)) {
+    pobj <- make_sell(pobj,
+                      id = sell$id[i],
+                      quantity = sell$quantity[i],
+                      price = sell$price[i])
+  }
+  
+  update_market_value(pobj, prices)
+}
 
+  
 # Optimization ------------------------------------------------------------
 
 
@@ -680,43 +709,32 @@ optimize <- function(obj,
   final_port$holdings_market_value <- update_holdings_market_value(final_port, obj$prices)
   
   # Sells
+  updated_sells <- NULL
   if(nrow(new_sells) > 0) {
-    i <- 1 
+    
     for (.id in new_sells$id) {
+      
       sell <- dplyr::filter(new_sells, id == .id) %>%
         dplyr::do(get_sell_trades(final_port, as.character(.$symbol), .$amount, lot_size)) %>% 
-        dplyr::mutate_at(c("type", "symbol", "desc"), as.character)
+        dplyr::mutate_at(c("type", "symbol", "desc"), as.character) 
+      
+      final_port <- execute_sell(sell, final_port, obj$prices)
       
       # update sell trades
-      if(i == 1) {
+      if(is.null( updated_sells)) {
         updated_sells <- sell
       }else {
         updated_sells <- dplyr::bind_rows(updated_sells, sell)
       }
-      
-      final_port <- final_port %>%
-        make_sell(
-          id = sell$id,
-          quantity = sell$quantity,
-          price = sell$price,
-          desc = as.character(sell$desc)
-        )
-      i <- 1+1
     }
-  } else {
-    updated_sells <- NULL
-  }
+  } 
   
   # Buys
   for (sym in new_buys$symbol) {
-    buy <- dplyr::filter(new_buys, symbol == as.character(sym))
-    final_port <- final_port %>%
-      make_buy(
-        symbol = as.character(sym),
-        quantity = buy$quantity,
-        price = buy$price,
-        desc = as.character(buy$desc)
-      )
+   
+    final_port <- new_buys %>% 
+      dplyr::filter(., symbol == as.character(sym)) %>% 
+      execute_buy(., final_port, obj$prices)
   }
   
   # Update Objects
