@@ -55,7 +55,7 @@ portfolio_optimization <- function(pobj,
   constraint_sell_symbols <- intersect(cobj$trade_symbols$sell_symbols, holding_symbols)
   cobj <- set_sell_symbols(cobj, constraint_sell_symbols)
   
-  tp <- trade_pairs(eobj, cobj, .target)
+  tp <- trade_pairs(eobj, cobj, .target, criteria)
   port_values <- get_estimated_port_values(pobj, eobj) %>%
     dplyr::mutate(iter = 0)
 
@@ -287,7 +287,7 @@ get_buy_trades.character <- function(obj,
 #'
 #' @importFrom magrittr %>%
 #' @export
-trade_pairs <- function(eobj, cobj, target){
+trade_pairs <- function(eobj, cobj, target, criteria){
   checkmate::assert_class(eobj, "estimates")
   checkmate::assert_class(cobj, "constraints")
   checkmate::assert_choice(target, c("mu", "sd", "sharpe", "yield"))
@@ -310,8 +310,12 @@ trade_pairs <- function(eobj, cobj, target){
     dplyr::mutate(delta = buy_target - sell_target,
                   selected = 0,
                   trades   = 0,
-                  active = TRUE) %>%
-    dplyr::arrange(-delta) %>% 
+                  active = TRUE) %>% 
+    dplyr::mutate(wt = scales::rescale(delta,
+                                       to = ifelse(criteria == "minimize",
+                                                   c(1, .001),
+                                                   c(0.001, 1)))^3) %>%  
+    dplyr::arrange(-wt) %>% 
     to_tibble()
 }
 
@@ -340,38 +344,67 @@ execute_trade_pair <- function(buy,
   port <- pobj
   if (sell != "CASH") {
     sells <- get_sell_trades(port, as.character(sell), amount, lot_size)
-    for (i in 1:nrow(sells)) {
-      sell <- sells[i, ]
-      port <- make_sell(
-        port,
-        id = sell$id,
-        quantity = sell$quantity,
-        price = sell$price
-      )
-    }
-    port <- update_market_value(port, prices)
+    port <- execute_sell(sells, port, prices)
   }
-
+  
   if(buy != "CASH") {
     amount <- min(amount, port$cash)
     buy <- get_buy_trades(prices, as.character(buy), amount, lot_size)
-    port <- make_buy(
-      port,
-      symbol = as.character(buy$symbol),
-      quantity = buy$quantity,
-      price = buy$price
-    )
-
-    port <- update_market_value(port, prices)
+    port <- execute_buy(buy, port, prices)
   }
 
   port
 }
 
 
+#' Execute Buy Trade Function
+#'
+#' Updates portfolio with buy trade provided
+#'
+#' @param buy data.frame with buy trade information. Result of get_buy_trades
+#'   function
+#' @inheritParams execute_trade_pair
+#'
+#' @return updated portfolio object
+#' @export
+execute_buy <- function(buy, pobj, prices) {
+  checkmate::assert_data_frame(buy)
+  checkmate::assert_class(pobj, "portfolio")
+  
+  pobj %>% 
+    make_buy(.,
+             symbol = as.character(buy$symbol),
+             quantity = buy$quantity,
+             price = buy$price) %>% 
+    update_market_value(prices)
+}
 
 
+#' Execute Sell Trade Function
+#'
+#' Updates portfolio with sell trade provided
+#'
+#' @param sell data.frame with sell trade information. Result of get_sell_trades
+#'   function
+#' @inheritParams execute_trade_pair
+#'
+#' @return updated portfolio object
+#' @export
+execute_sell <- function(sell, pobj, prices) {
+  checkmate::assert_data_frame(sell)
+  checkmate::assert_class(pobj, "portfolio")
+  
+  for (i in 1:nrow(sell)) {
+    pobj <- make_sell(pobj,
+                      id = sell$id[i],
+                      quantity = sell$quantity[i],
+                      price = sell$price[i])
+  }
+  
+  update_market_value(pobj, prices)
+}
 
+  
 # Optimization ------------------------------------------------------------
 
 
@@ -559,7 +592,7 @@ optimize <- function(obj,
       holding_symbols <- as.character(unique(port$holdings$symbol))
       constraint_sell_symbols <- intersect(obj$constraints$trade_symbols$sell_symbols, holding_symbols)
       obj$constraints <- set_sell_symbols(obj$constraints, constraint_sell_symbols)
-      obj$trade_pairs <- trade_pairs(obj$estimates, obj$constraints, .target)
+      obj$trade_pairs <- trade_pairs(obj$estimates, obj$constraints, .target, obj$criteria)
 
       if(plot_iter) print(po_target_chart(obj))
     }
@@ -583,9 +616,7 @@ optimize <- function(obj,
       break
     } else {
       tp_smpl <- tp_actives %>%
-       # dplyr::top_n(min(trade_pairs, tp_nactives), wt = delta)
-        dplyr::mutate(delta = scales::rescale(delta, to = c(0.001, 1))) %>%
-        dplyr::sample_n(min(n_pairs, tp_nactives), weight = delta^3)
+        dplyr::sample_n(min(n_pairs, tp_nactives), weight = wt)
     }
 
     # Run NBTO
@@ -680,43 +711,32 @@ optimize <- function(obj,
   final_port$holdings_market_value <- update_holdings_market_value(final_port, obj$prices)
   
   # Sells
+  updated_sells <- NULL
   if(nrow(new_sells) > 0) {
-    i <- 1 
+    
     for (.id in new_sells$id) {
+      
       sell <- dplyr::filter(new_sells, id == .id) %>%
         dplyr::do(get_sell_trades(final_port, as.character(.$symbol), .$amount, lot_size)) %>% 
-        dplyr::mutate_at(c("type", "symbol", "desc"), as.character)
+        dplyr::mutate_at(c("type", "symbol", "desc"), as.character) 
+      
+      final_port <- execute_sell(sell, final_port, obj$prices)
       
       # update sell trades
-      if(i == 1) {
+      if(is.null( updated_sells)) {
         updated_sells <- sell
       }else {
         updated_sells <- dplyr::bind_rows(updated_sells, sell)
       }
-      
-      final_port <- final_port %>%
-        make_sell(
-          id = sell$id,
-          quantity = sell$quantity,
-          price = sell$price,
-          desc = as.character(sell$desc)
-        )
-      i <- 1+1
     }
-  } else {
-    updated_sells <- NULL
-  }
+  } 
   
   # Buys
   for (sym in new_buys$symbol) {
-    buy <- dplyr::filter(new_buys, symbol == as.character(sym))
-    final_port <- final_port %>%
-      make_buy(
-        symbol = as.character(sym),
-        quantity = buy$quantity,
-        price = buy$price,
-        desc = as.character(buy$desc)
-      )
+   
+    final_port <- new_buys %>% 
+      dplyr::filter(., symbol == as.character(sym)) %>% 
+      execute_buy(., final_port, obj$prices)
   }
   
   # Update Objects

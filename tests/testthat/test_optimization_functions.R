@@ -106,6 +106,43 @@ test_that("Optimize improves return target", {
 
 
 
+test_that("Optimize reduces risk target", {
+  
+  .target <- "risk"
+  
+  # Create Constraints
+  c1 <- constraints(symbols = e1$symbols) %>%
+    add_symbol_constraint(min = 0.0, max = .5)
+  
+  # Create Optimization
+  po <- portfolio_optimization(p1, e1, c1, prices, target =  .target)
+  
+  # Optimize
+  po_opt <- optimize(po,
+                     n_pairs = .npairs,
+                     amount = trade_amount,
+                     lot_size = .lot_size,
+                     max_iter = .max_iters,
+                     max_runtime = .max_runtime,
+                     improve_lag = .improve_lag,
+                     min_improve = .001,
+                     plot_iter = FALSE)
+  
+  top_target <- get_estimates_stats(e1) %>%
+    top_n(1, -sd) %>%
+    pull(symbol)
+  
+  expect_gt(
+    po_opt$optimal_portfolio %>%
+      get_estimated_port_values(e1) %>%
+      pull(.target),
+    p1 %>%
+      get_estimated_port_values(e1) %>%
+      pull(.target)
+  )
+  
+})
+
 # Test 2 - Improves Symbol Constraints ------------------------------------
 
 test_that("Improves Failed Symbol Constraints", {
