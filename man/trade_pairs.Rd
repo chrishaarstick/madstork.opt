@@ -4,7 +4,7 @@
 \alias{trade_pairs}
 \title{Create Trade Pairs Function}
 \usage{
-trade_pairs(eobj, cobj, target)
+trade_pairs(eobj, cobj, target, criteria)
 }
 \arguments{
 \item{eobj}{estimates object}
