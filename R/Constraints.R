@@ -792,8 +792,9 @@ meet_constraint.cardinality_constraint <- function(constraint,
   while(!check) {
 
     if(cc$value > cc$max) {
+      holdings_syms <- unique(port$holdings$symbol)
       tp <- trade_pairs %>%
-        dplyr::filter(sell %in% unique(port$holdings$symbol) & buy == "CASH")
+        dplyr::filter(sell %in% holdings_syms & buy == c("CASH", holdings_syms))
       
       .amount <- get_holdings_market_value(port) %>%
         dplyr::group_by(symbol) %>%
@@ -804,7 +805,7 @@ meet_constraint.cardinality_constraint <- function(constraint,
     } else {
       .syms <- setdiff(eobj$symbols, unique(port$holdings$symbol))
       tp <- trade_pairs %>%
-        dplyr::filter(buy %in% .syms & sell == "CASH")
+        dplyr::filter(buy %in% .syms)
       .amount <- amount
     }
     
