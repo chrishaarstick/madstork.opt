@@ -55,7 +55,7 @@ portfolio_optimization <- function(pobj,
   constraint_sell_symbols <- intersect(cobj$trade_symbols$sell_symbols, holding_symbols)
   cobj <- set_sell_symbols(cobj, constraint_sell_symbols)
   
-  tp <- trade_pairs(eobj, cobj, .target)
+  tp <- trade_pairs(eobj, cobj, .target, criteria)
   port_values <- get_estimated_port_values(pobj, eobj) %>%
     dplyr::mutate(iter = 0)
 
@@ -287,7 +287,7 @@ get_buy_trades.character <- function(obj,
 #'
 #' @importFrom magrittr %>%
 #' @export
-trade_pairs <- function(eobj, cobj, target){
+trade_pairs <- function(eobj, cobj, target, criteria){
   checkmate::assert_class(eobj, "estimates")
   checkmate::assert_class(cobj, "constraints")
   checkmate::assert_choice(target, c("mu", "sd", "sharpe", "yield"))
@@ -310,8 +310,12 @@ trade_pairs <- function(eobj, cobj, target){
     dplyr::mutate(delta = buy_target - sell_target,
                   selected = 0,
                   trades   = 0,
-                  active = TRUE) %>%
-    dplyr::arrange(-delta) %>% 
+                  active = TRUE) %>% 
+    dplyr::mutate(wt = scales::rescale(delta,
+                                       to = ifelse(criteria == "minimize",
+                                                   c(1, .001),
+                                                   c(0.001, 1)))^3) %>%  
+    dplyr::arrange(-wt) %>% 
     to_tibble()
 }
 
@@ -588,7 +592,7 @@ optimize <- function(obj,
       holding_symbols <- as.character(unique(port$holdings$symbol))
       constraint_sell_symbols <- intersect(obj$constraints$trade_symbols$sell_symbols, holding_symbols)
       obj$constraints <- set_sell_symbols(obj$constraints, constraint_sell_symbols)
-      obj$trade_pairs <- trade_pairs(obj$estimates, obj$constraints, .target)
+      obj$trade_pairs <- trade_pairs(obj$estimates, obj$constraints, .target, obj$criteria)
 
       if(plot_iter) print(po_target_chart(obj))
     }
@@ -612,9 +616,7 @@ optimize <- function(obj,
       break
     } else {
       tp_smpl <- tp_actives %>%
-       # dplyr::top_n(min(trade_pairs, tp_nactives), wt = delta)
-        dplyr::mutate(delta = scales::rescale(delta, to = c(0.001, 1))) %>%
-        dplyr::sample_n(min(n_pairs, tp_nactives), weight = delta^3)
+        dplyr::sample_n(min(n_pairs, tp_nactives), weight = wt)
     }
 
     # Run NBTO
