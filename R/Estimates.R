@@ -309,7 +309,8 @@ add_dividends <- function(eobj) {
 #'
 #' Function gets Estimates stats by symobl
 #'
-#' Returns mu return, standard deviation, sharpe ratio and annual dividend
+#' Returns mu return, standard deviation, sharpe ratio and annual dividend yield
+#'
 #' @param eobj estimates object
 #' @export
 get_estimates_stats <- function(eobj) {
@@ -317,8 +318,13 @@ get_estimates_stats <- function(eobj) {
   if(is.null(eobj$mu)) stop("missing mu estimtes")
   if(is.null(eobj$dividends)) stop("missing dividends")
   if(is.null(eobj$sigma)) stop("missing sigma")
-
-  eobj$mu %>%
+  
+  eobj$prices %>% 
+    dplyr::group_by(symbol) %>% 
+    dplyr::filter(date == max(date)) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::select(symbol, price) %>% 
+    dplyr::inner_join(eobj$mu, by="symbol") %>%
     dplyr::inner_join(eobj$dividends, by="symbol") %>%
     dplyr::inner_join(
       get_sigma_df(eobj) %>%
@@ -327,8 +333,8 @@ get_estimates_stats <- function(eobj) {
         dplyr::select(symbol = symbol1, sd),
       by = "symbol"
     ) %>%
-    dplyr::mutate(sharpe = return/sd) %>%
-    dplyr::select(symbol, mu = return, sd, sharpe, yield = dividend)
+    dplyr::mutate(sharpe = return/sd, yield = dividend / price) %>%
+    dplyr::select(symbol, mu = return, sd, sharpe, yield)
 }
 
 
