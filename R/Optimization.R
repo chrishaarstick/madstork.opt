@@ -43,19 +43,20 @@ portfolio_optimization <- function(pobj,
   }
   checkmate::assert_subset(c("symbol", "price", "dividend"), colnames(prices))
 
-  criteria <- ifelse(target %in% c("sd"), "minimize", "maximize")
+  criteria <- ifelse(target == "sd", "minimize", "maximize")
   .target <- dplyr::case_when(
     target == "return" ~ "mu",
     target == "risk" ~ "sd",
     target == "income" ~ "yield",
     TRUE ~ as.character(target)
     )
+  .criteria <- ifelse(.target == "sd", "minimize", "maximize")
   
   # Set sell symbols
   constraint_sell_symbols <- intersect(cobj$trade_symbols$sell_symbols, holding_symbols)
   cobj <- set_sell_symbols(cobj, constraint_sell_symbols)
   
-  tp <- trade_pairs(eobj, cobj, .target, criteria)
+  tp <- trade_pairs(eobj, cobj, .target, .criteria)
   port_values <- get_estimated_port_values(pobj, eobj) %>%
     dplyr::mutate(iter = 0)
 
