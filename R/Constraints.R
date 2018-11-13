@@ -1123,6 +1123,7 @@ meet_constraint.performance_constraint <- function(constraint,
                                                    amount,
                                                    lot_size,
                                                    max_iter = 5,
+                                                   max_pairs = 50,
                                                    ...) {
   checkmate::assert_class(pobj, "portfolio")
   checkmate::assert_data_frame(prices)
@@ -1137,17 +1138,24 @@ meet_constraint.performance_constraint <- function(constraint,
   cc <- check_constraint(constraint, stats = stats)
   check <- cc$check
   iter <- 0
+  
+  # Performance Trade Pairs
   target <- as.character(cc$args)
   minimize <- ifelse(target %in% c("sd", "risk"), TRUE, FALSE)
-
+  criteria <- ifelse(minimize, "minimize", "maximize")
+  new_trade_pairs <- trade_pairs(eobj, cobj, target, criteria)
+  
   while(! check) {
-
+    
+    tp_smpl <- new_trade_pairs %>% 
+      dplyr::sample_n(size = min(nrow(new_trade_pairs), max_pairs), weight = wt)
+    
     port <- nbto(
       pobj = port,
       cobj = cobj,
       eobj = eobj,
       prices = prices,
-      trade_pairs = trade_pairs,
+      trade_pairs = tp_smpl,
       target = target,
       minimize = minimize,
       amount = amount,
