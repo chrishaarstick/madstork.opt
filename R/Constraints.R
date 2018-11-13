@@ -136,7 +136,9 @@ filter_constraints <- function(cobj, index) {
     constraints_list <- cobj$constraints[index]
   }
 
-  constraints(cobj$symbols, cobj = constraints_list)
+  cobj$constraints <- constraints_list
+  
+  cobj
 }
 
 
