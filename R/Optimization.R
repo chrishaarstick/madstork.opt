@@ -311,10 +311,11 @@ trade_pairs <- function(eobj, cobj, target, criteria){
                   selected = 0,
                   trades   = 0,
                   active = TRUE) %>% 
-    dplyr::mutate(wt = scales::rescale(delta,
-                                       to = ifelse(criteria == "minimize",
-                                                   c(1, .001),
-                                                   c(0.001, 1)))^3) %>%  
+    dplyr::mutate(wt = scales::rescale(
+      delta,
+      to = dplyr::case_when(
+        criteria == "minimize" ~ c(1, .001),
+        TRUE ~ c(0.001, 1)))^3) %>% 
     dplyr::arrange(-wt) %>% 
     to_tibble()
 }
