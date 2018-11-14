@@ -1148,9 +1148,10 @@ meet_constraint.performance_constraint <- function(constraint,
   while(! check) {
     
     tp_smpl <- new_trade_pairs %>% 
-      dplyr::sample_n(size = min(nrow(new_trade_pairs), max_pairs), weight = wt)
+      dplyr::filter(active) %>% 
+      dplyr::top_n(n = min(nrow(new_trade_pairs), max_pairs), wt = wt)
     
-    port <- nbto(
+    nbto_opt <- nbto(
       pobj = port,
       cobj = cobj,
       eobj = eobj,
@@ -1159,8 +1160,21 @@ meet_constraint.performance_constraint <- function(constraint,
       target = target,
       minimize = minimize,
       amount = amount,
-      lot_size = lot_size
-    )$portfolio
+      lot_size = lot_size,
+      update_trade_pairs = TRUE
+    )
+    
+    port <- nbto_opt$portfolio
+    new_trade_pairs <- dplyr::bind_rows(
+      nbto_opt$trade_pairs,
+      new_trade_pairs %>%
+        dplyr::filter(!id %in% nbto_opt$trade_pairs$id)
+    ) 
+    
+    holding_symbols <- as.character(unique(port$holdings$symbol))
+    constraint_sell_symbols <- intersect(cobj$trade_symbols$sell_symbols, holding_symbols)
+    cobj <- set_sell_symbols(cobj, constraint_sell_symbols)
+    
 
     stats <- get_estimated_port_stats(port, eobj, TRUE)
     cc <- check_constraint(constraint, stats = stats)
