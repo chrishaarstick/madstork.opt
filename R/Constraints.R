@@ -80,7 +80,8 @@ remove_constraint <- function(cobj, index, id = NULL) {
                                        1:length(cobj$constraints) == index)
   }
   
-  constraints(cobj$symbols, cobj = constraints_list)
+  cobj$constraints <- constraints_list
+  cobj
 } 
 
 
@@ -136,7 +137,9 @@ filter_constraints <- function(cobj, index) {
     constraints_list <- cobj$constraints[index]
   }
 
-  constraints(cobj$symbols, cobj = constraints_list)
+  cobj$constraints <- constraints_list
+  
+  cobj
 }
 
 
@@ -498,26 +501,31 @@ meet_constraint.symbol_constraint <- function(constraint,
       dplyr::pull(net_value) *
       abs(share_amount)
 
-    trade_amount <- ifelse(total_amount > amount,
-                           max(amount, total_amount/(max_iter-iter)),
-                           total_amount)
-    sym_price <- prices %>%
-      filter(symbol == cc$args) %>%
-      dplyr::pull(price)
-    trade_amount <- ceiling(trade_amount/sym_price) * sym_price
-
-    port <- nbto(
+    trade_amount <- dplyr::case_when(
+      total_amount > amount ~ total_amount/max_iter,
+      TRUE ~  total_amount)
+  
+    nbto_opt <- nbto_optimize(
       pobj = port,
       cobj = cobj,
       eobj = eobj,
       prices = prices,
       trade_pairs = tp,
+      n_pairs = nrow(tp),
       target = target,
       minimize = minimize,
       amount = trade_amount,
-      lot_size = lot_size
-    )$portfolio
-
+      lot_size = lot_size,
+      max_iter = max_iter,
+      max_runtime = 600,
+      improve_lag = max_iter,
+      min_improve = 0,
+      include_port = FALSE,
+      update_trade_pairs = TRUE,
+      random_pairs = FALSE
+    )
+    
+    port <- nbto_opt$portfolios[[length(nbto_opt$portfolios)]]
     cc <- check_constraint(constraint, holdings = port$holdings_market_value)
     iter <- iter + 1
     check <- (cc$check | iter >= max_iter)
@@ -628,7 +636,7 @@ meet_constraint.cash_constraint <- function(constraint,
   checkmate::assert_class(pobj, "portfolio")
   checkmate::assert_data_frame(prices)
   checkmate::assert_subset(c("symbol", "price", "dividend"), colnames(prices))
-  checkmate::assert_choice(target, c("mu", "sd", "yield", "return", "risk", "sharpe", "income"))
+  checkmate::assert_choice(target, c("return", "risk", "sharpe", "income"))
   checkmate::assert_number(amount, lower = 0)
   checkmate::assert_number(lot_size, lower = 1)
 
@@ -653,22 +661,31 @@ meet_constraint.cash_constraint <- function(constraint,
       dplyr::pull(net_value) *
       abs(share_amount)
 
-    trade_amount <- ifelse(total_amount > amount,
-                           max(amount, total_amount/(max_iter-iter)),
-                           total_amount)
-
-    port <- nbto(
+    trade_amount <- dplyr::case_when(
+      total_amount > amount ~ total_amount/max_iter,
+      TRUE ~ amount)
+    
+    nbto_opt <- nbto_optimize(
       pobj = port,
       cobj = cobj,
       eobj = eobj,
       prices = prices,
       trade_pairs = tp,
+      n_pairs = nrow(tp),
       target = target,
       minimize = minimize,
       amount = trade_amount,
-      lot_size = lot_size
-    )$portfolio
-
+      lot_size = lot_size,
+      max_iter = max_iter,
+      max_runtime = 600,
+      improve_lag = max_iter,
+      min_improve = 0,
+      include_port = FALSE,
+      update_trade_pairs = TRUE,
+      random_pairs = FALSE
+    )
+    
+    port <- nbto_opt$portfolios[[length(nbto_opt$portfolios)]]
     cc <- check_constraint(constraint, pobj = port)
     iter <- iter + 1
     check <- (cc$check | iter >= max_iter)
@@ -775,11 +792,12 @@ meet_constraint.cardinality_constraint <- function(constraint,
                                                    amount,
                                                    lot_size,
                                                    max_iter = 5,
+                                                   n_syms = 3,
                                                    ...) {
   checkmate::assert_class(pobj, "portfolio")
   checkmate::assert_data_frame(prices)
   checkmate::assert_subset(c("symbol", "price", "dividend"), colnames(prices))
-  checkmate::assert_choice(target, c("mu", "sd", "yield", "return", "risk", "sharpe", "income"))
+  checkmate::assert_choice(target, c("return", "risk", "sharpe", "income"))
   checkmate::assert_number(amount, lower = 0)
   checkmate::assert_number(lot_size, lower = 1)
 
@@ -788,43 +806,114 @@ meet_constraint.cardinality_constraint <- function(constraint,
   holdings <- get_symbol_estimates_share(port, eobj)
   cc <- check_constraint(constraint, holdings = holdings)
   check <- cc$check
-  iter <- 0
+  
+  est_target <- dplyr::case_when(
+    target == "return" ~ "mu",
+    target ==  "risk" ~ "sd",
+    target == "income" ~ "yield",
+    TRUE ~ as.character(target)
+  )
+  est_minimize <- ifelse(est_target == "sd", TRUE, FALSE)
+  
   while(!check) {
 
-    if(cc$value > cc$max) {
-      holdings_syms <- unique(port$holdings$symbol)
-      tp <- trade_pairs %>%
-        dplyr::filter(sell %in% holdings_syms & buy %in% c("CASH", holdings_syms))
-      
-      .amount <- get_holdings_market_value(port) %>%
-        dplyr::group_by(symbol) %>%
-        dplyr::summarise_at("market_value", sum) %>%
-        dplyr::ungroup() %>%
-        dplyr::filter(market_value == max(market_value)) %>%
-        dplyr::pull(market_value)
-    } else {
-      .syms <- setdiff(eobj$symbols, unique(port$holdings$symbol))
-      tp <- trade_pairs %>%
-        dplyr::filter(buy %in% .syms)
-      .amount <- amount
-    }
+    holdings_syms <- as.character(unique(port$holdings$symbol))
     
-    port <- nbto(
-      pobj = port,
-      cobj = cobj,
-      eobj = eobj,
-      prices = prices,
-      trade_pairs = tp,
-      target = target,
-      minimize = minimize,
-      amount = .amount,
-      lot_size = lot_size
-    )$portfolio
+    if(cc$value > cc$max) {
+      sell_syms <- intersect(cobj$trade_symbols$sell_symbols, holdings_syms)
+      buy_syms <- c("CASH", intersect(cobj$trade_symbols$buy_symbols, holdings_syms))
+    
+      # Get symbol ests
+      sym_ests <- get_estimates_stats(eobj) %>%
+        filter(symbol %in% sell_syms) %>%
+        top_n(n_syms,
+              wt = case_when(est_minimize ~ !!rlang::sym(est_target),
+                             TRUE ~ -!!rlang::sym(est_target)))
+      
+      # Get Port Candiates
+      port_candidates <- vector("list", n_syms)
+      names(port_candidates) <- sym_ests$symbol
+      for(i in 1:n_syms) {
+        sym <- names(port_candidates)[i]
+        tp <- dplyr::filter(trade_pairs, sell %in% sym & buy %in% buy_syms)
+        total_amt <- dplyr::filter(port$holdings_market_value, symbol == sym) %>% 
+          dplyr::pull(market_value) %>% 
+          sum(.)
+        trade_amount <- max(amount, total_amt/max_iter)
+        sym_price <- prices %>%
+          filter(symbol == sym) %>%
+          dplyr::pull(price)
+        trade_amount <- ceiling(trade_amount/sym_price) * sym_price
+        sym_max_iter <- ceiling(total_amt/trade_amount)
+        
+        port_candidates[[i]] <- nbto_optimize(
+          pobj = port,
+          cobj = cobj,
+          eobj = eobj,
+          prices = prices,
+          trade_pairs = tp,
+          n_pairs = nrow(tp),
+          target = target,
+          minimize = FALSE,
+          amount = trade_amount,
+          lot_size = lot_size,
+          max_iter = sym_max_iter,
+          max_runtime = 600,
+          improve_lag = sym_max_iter,
+          min_improve = 0,
+          include_port = FALSE,
+          update_trade_pairs = TRUE,
+          random_pairs = FALSE
+        )$portfolios[[sym_max_iter + 1]]
+      }
+      
+      opt_port_id <- port_candidates %>%
+        purrr::map_df(.,
+                      get_estimated_port_values,
+                      eobj = eobj,
+                      .id = "id") %>% 
+        dplyr::top_n(1, !!rlang::sym(target)) %>%
+        .$id %>%
+        head(1)
+      
+      port <- port_candidates[opt_port_id][[1]]
+      
+    } else {
+      sell_syms <- c("CASH", setdiff(cobj$trade_symbols$sell_symbols, holdings_syms))
+      buy_syms <- setdiff(cobj$trade_symbols$buy_symbols, holdings_syms)
+      tp <- dplyr::filter(trade_pairs, sell %in% sell_syms & buy %in% buy_syms)
+      
+       nbto_opt <- nbto_optimize(
+        pobj = port,
+        cobj = cobj,
+        eobj = eobj,
+        prices = prices,
+        trade_pairs = tp,
+        n_pairs = nrow(tp),
+        target = target,
+        minimize = FALSE,
+        amount = amount,
+        lot_size = lot_size,
+        max_iter = 1,
+        max_runtime = 600,
+        improve_lag = 1,
+        min_improve = 0,
+        include_port = FALSE,
+        update_trade_pairs = TRUE,
+        random_pairs = FALSE
+      )
+      
+      port <- nbto_opt$portfolios[[length(nbto_opt$portfolios)]]
+    }
+
+    holding_symbols <- as.character(unique(port$holdings$symbol))
+    constraint_sell_symbols <- intersect(cobj$trade_symbols$sell_symbols, holding_symbols)
+    cobj <- set_sell_symbols(cobj, constraint_sell_symbols)
+    
 
     holdings <- get_symbol_estimates_share(port, eobj)
     cc <- check_constraint(constraint, holdings = holdings)
-    iter <- iter + 1
-    check <- (cc$check | iter >= max_iter)
+    check <- cc$check 
   }
 
   port
@@ -948,18 +1037,12 @@ meet_constraint.group_constraint <- function(constraint,
   # Check constraint
   port <- pobj
   cc <- check_constraint(constraint, holdings = port$holdings_market_value)
+  syms <- strsplit(as.character(cc$args), ",")[[1]]
   check <- cc$check
   iter <- 0
   while(! check) {
+    
     share_amount <- cc$value - cc$min
-
-    total_amount <- get_market_value(port) %>%
-      dplyr::filter(last_updated == max(last_updated)) %>%
-      dplyr::pull(net_value) *
-      abs(share_amount)
-
-    trade_amount <- max(amount, total_amount/(max_iter-1))
-    syms <- strsplit(as.character(cc$args), ",")[[1]]
 
     if(share_amount < 0) {
       tp <- trade_pairs %>%
@@ -968,26 +1051,43 @@ meet_constraint.group_constraint <- function(constraint,
       tp <- trade_pairs %>%
         dplyr::filter(sell %in% syms)
     }
-
-    port <- nbto(
+    
+    total_amount <- get_market_value(port) %>%
+      dplyr::filter(last_updated == max(last_updated)) %>%
+      dplyr::pull(net_value) *
+      abs(share_amount)
+    
+    trade_amount <- dplyr::case_when(
+      total_amount > amount ~ total_amount/max_iter,
+      TRUE ~  total_amount)
+    
+    nbto_opt <- nbto_optimize(
       pobj = port,
       cobj = cobj,
       eobj = eobj,
       prices = prices,
       trade_pairs = tp,
+      n_pairs = nrow(tp),
       target = target,
       minimize = minimize,
       amount = trade_amount,
-      lot_size = lot_size
-    )$portfolio
-
+      lot_size = lot_size,
+      max_iter = max_iter,
+      max_runtime = 600,
+      improve_lag = max_iter,
+      min_improve = 0,
+      include_port = FALSE,
+      update_trade_pairs = TRUE,
+      random_pairs = FALSE
+    )
+    
+    port <- nbto_opt$portfolios[[length(nbto_opt$portfolios)]]
     cc <- check_constraint(constraint, holdings = port$holdings_market_value)
     iter <- iter + 1
     check <- (cc$check | iter >= max_iter)
   }
 
   port
-
 }
 
 
@@ -1128,58 +1228,55 @@ meet_constraint.performance_constraint <- function(constraint,
   checkmate::assert_class(pobj, "portfolio")
   checkmate::assert_data_frame(prices)
   checkmate::assert_subset(c("symbol", "price", "dividend"), colnames(prices))
-  # checkmate::assert_choice(target, c("mu", "sd", "yield", "return", "risk", "sharpe", "income"))
+  checkmate::assert_choice(target, c("return", "risk", "sharpe", "income"))
   checkmate::assert_number(amount, lower = 0)
   checkmate::assert_number(lot_size, lower = 1)
 
+  
   # Check constraint
   port <- pobj
   stats <- get_estimated_port_stats(port, eobj, TRUE)
   cc <- check_constraint(constraint, stats = stats)
   check <- cc$check
-  iter <- 0
   
   # Performance Trade Pairs
-  target <- as.character(cc$args)
-  minimize <- ifelse(target %in% c("sd", "risk"), TRUE, FALSE)
-  criteria <- ifelse(minimize, "minimize", "maximize")
-  new_trade_pairs <- trade_pairs(eobj, cobj, target, criteria)
+  cc_target <- as.character(cc$args)
+  perf_target <- dplyr::case_when(
+    cc_target == "mu" ~ "return",
+    cc_target == "sd" ~ "risk",
+    cc_target == "yield" ~ "income",
+    TRUE ~ as.character(cc_target)
+  )
+  new_trade_pairs <- trade_pairs(eobj, cobj, perf_target, "maximize")
   
   while(! check) {
     
-    tp_smpl <- new_trade_pairs %>% 
-      dplyr::filter(active) %>% 
-      dplyr::top_n(n = min(nrow(new_trade_pairs), max_pairs), wt = wt)
-    
-    nbto_opt <- nbto(
+    nbto_opt <- nbto_optimize(
       pobj = port,
       cobj = cobj,
       eobj = eobj,
       prices = prices,
-      trade_pairs = tp_smpl,
-      target = target,
-      minimize = minimize,
+      trade_pairs = new_trade_pairs,
+      n_pairs = min(max_pairs, nrow(new_trade_pairs)),
+      target = perf_target,
+      minimize = FALSE,
       amount = amount,
       lot_size = lot_size,
-      update_trade_pairs = TRUE
+      max_iter = max_iter,
+      max_runtime = 600,
+      improve_lag = max_iter,
+      min_improve = 0,
+      include_port = FALSE,
+      update_trade_pairs = TRUE,
+      random_pairs = FALSE
     )
     
-    port <- nbto_opt$portfolio
-    new_trade_pairs <- dplyr::bind_rows(
-      nbto_opt$trade_pairs,
-      new_trade_pairs %>%
-        dplyr::filter(!id %in% nbto_opt$trade_pairs$id)
-    ) 
+    port <- nbto_opt$portfolios[[length(nbto_opt$portfolios)]]
+    new_trade_pairs <- nbto_opt$trade_pairs
     
-    holding_symbols <- as.character(unique(port$holdings$symbol))
-    constraint_sell_symbols <- intersect(cobj$trade_symbols$sell_symbols, holding_symbols)
-    cobj <- set_sell_symbols(cobj, constraint_sell_symbols)
-    
-
     stats <- get_estimated_port_stats(port, eobj, TRUE)
     cc <- check_constraint(constraint, stats = stats)
-    iter <- iter + 1
-    check <- (cc$check | iter >= max_iter)
+    check <- cc$check
   }
 
   port
