@@ -46,8 +46,9 @@ portfolio_optimization <- function(pobj,
   # Set sell symbols
   constraint_sell_symbols <- intersect(cobj$trade_symbols$sell_symbols, holding_symbols)
   cobj <- set_sell_symbols(cobj, constraint_sell_symbols)
-  
+
   tp <- trade_pairs(eobj, cobj, target, "maximize")
+
   port_values <- get_estimated_port_values(pobj, eobj) %>%
     dplyr::mutate(iter = 0)
 
