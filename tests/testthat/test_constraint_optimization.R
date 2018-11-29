@@ -85,6 +85,7 @@ test_that("Meet Constraints optimization meets all buy symbol constrainsts", {
   cc1.2 <- check_constraints(c1.2, p1.2, e1)
   expect_true(cc1.2$check[1])
 
+  
   c1.3 <- filter_constraints(c1, 3)
   p1.3 <- meet_constraint(c1.3$constraints[[1]],
                           pobj = p1.2,
@@ -245,6 +246,7 @@ test_that("Meet Constraints optimization meets cardinality constrainsts", {
                            max_iter = 2)
   cc4b.1 <- check_constraints(c4b, p4b.1, e1)
   expect_true(cc4b.1$check[1])
+  
 })
 
 

@@ -815,7 +815,7 @@ meet_constraint.cardinality_constraint <- function(constraint,
   )
   est_minimize <- ifelse(est_target == "sd", TRUE, FALSE)
   
-  while(!check) {
+  while(! check) {
 
     holdings_syms <- as.character(unique(port$holdings$symbol))
     
@@ -906,13 +906,16 @@ meet_constraint.cardinality_constraint <- function(constraint,
       port <- nbto_opt$portfolios[[length(nbto_opt$portfolios)]]
     }
 
-    holding_symbols <- as.character(unique(port$holdings$symbol))
+    holdings <- get_symbol_estimates_share(port, eobj)
+    cc <- check_constraint(constraint, holdings = holdings)
+    
+    holding_symbols <- holdings %>% 
+      dplyr::filter(portfolio_share > 0) %>% 
+      dplyr::pull(symbol) %>% 
+      as.character()
     constraint_sell_symbols <- intersect(cobj$trade_symbols$sell_symbols, holding_symbols)
     cobj <- set_sell_symbols(cobj, constraint_sell_symbols)
     
-
-    holdings <- get_symbol_estimates_share(port, eobj)
-    cc <- check_constraint(constraint, holdings = holdings)
     check <- cc$check 
   }
 
