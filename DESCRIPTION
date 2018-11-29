@@ -18,7 +18,9 @@ Imports:
   scales,
   checkmate,
   madstork,
-  corpcor
+  corpcor,
+  future,
+  furrr
 Suggests: 
   testthat,
   docopt,

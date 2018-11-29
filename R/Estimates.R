@@ -81,7 +81,7 @@ estimates <- function(symbols,
 
 
   if(is.null(prices)) {
-    prices <- get_prices(symbols, start_date = start_date, end_date = end_date) %>%
+    prices <- madstork::get_prices(symbols, start_date = start_date, end_date = end_date) %>%
       dplyr::group_by(symbol, floor = floor_date(date, unit = grain)) %>%
       dplyr::filter(date == max(date)) %>%
       dplyr::ungroup() %>%
