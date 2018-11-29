@@ -14,6 +14,8 @@
 #' @param target target objective
 #' @param desc optional meta-data description input
 #' @param version optional input for version
+#' @param backend future backend mode. `sequential` creates single threaded
+#'   execution. `multisession` creates parrallel backend
 #'
 #' @return portfolio_optimization class
 #' @export
@@ -24,7 +26,8 @@ portfolio_optimization <- function(pobj,
                                    prices = NULL,
                                    target,
                                    desc = "",
-                                   version = 1.0) {
+                                   version = 1.0,
+                                   backend = "sequential") {
   checkmate::assert_class(pobj, "portfolio")
   checkmate::assert_class(eobj, "estimates")
   checkmate::assert_class(cobj, "constraints")
@@ -32,7 +35,12 @@ portfolio_optimization <- function(pobj,
   checkmate::assert_choice(target, c("return", "risk", "sharpe", "income"))
   checkmate::assert_character(desc)
   checkmate::assert_number(version)
-
+  checkmate::assert_choice(backend, choices = c("sequential", "multisession"))
+  
+  
+  # Set Backend
+  future::plan(strategy = get(backend, asNamespace("future"))())
+  
   # Check symbols
   symbols <- eobj$symbols
   holding_symbols <- unique(as.character(pobj$holdings$symbol))
@@ -378,11 +386,11 @@ execute_buy <- function(buy, pobj, prices) {
   checkmate::assert_class(pobj, "portfolio")
   
   pobj %>% 
-    make_buy(.,
-             symbol = as.character(buy$symbol),
-             quantity = buy$quantity,
-             price = buy$price) %>% 
-    update_market_value(prices)
+    madstork::make_buy(.,
+                       symbol = as.character(buy$symbol),
+                       quantity = buy$quantity,
+                       price = buy$price) %>% 
+    madstork::update_market_value(prices)
 }
 
 
@@ -402,13 +410,13 @@ execute_sell <- function(sell, pobj, prices) {
   
   for (i in sell$id) {
     s1 <- filter(sell, id == i)
-    pobj <- make_sell(pobj,
-                      id = s1$id,
-                      quantity = s1$quantity,
-                      price = s1$price)
+    pobj <- madstork::make_sell(pobj,
+                                id = s1$id,
+                                quantity = s1$quantity,
+                                price = s1$price)
   }
   
-  update_market_value(pobj, prices)
+  madstork::update_market_value(pobj, prices)
 }
 
   
@@ -459,55 +467,71 @@ nbto <- function(pobj,
   # Create Canidate Portfolios
   port_canidates <- trade_pairs %>%
     split(.$id) %>%
-    purrr::map(~ execute_trade_pair(.$buy,
-                                    .$sell,
-                                    pobj,
-                                    prices,
-                                    amount,
-                                    lot_size))
+    furrr::future_map(., .f = function(x) {
+      port <- execute_trade_pair(x$buy, x$sell, pobj, prices, amount, lot_size)
+      cc <- check_constraints(cobj, port, eobj)
+      pass <- ifelse(nrow(cc) == 0, TRUE, all(cc$check))
+      port_vals <- get_estimated_port_values(pobj = port, eobj = eobj)
+      
+      list(portfolio   = port, 
+           constraints = cc,
+           pass        = pass,
+           values      = port_vals)
+    },
+    .options = furrr::future_options(packages = c("madstork", "tidyverse"))
+    )
+  
+  # Get Top Candidate
+  constraints_passed <- purrr::map_lgl(port_canidates, "pass", .id = "id")
+  top_candidate <- port_canidates %>% 
+    purrr::keep(constraints_passed) %>% 
+    purrr::map_dfr(.,  "values", .id = "id") %>% 
+    dplyr::top_n(ifelse(minimize, -1, 1), !!rlang::sym(target)) 
+  
+  # Get New Portfolio
   if(include_port) {
-    port_canidates <- c(list(`0` = pobj), port_canidates)
-  }
-
-  # Check Canidates Constraints
-  port_evals <- port_canidates %>%
-    purrr::map(~ check_constraints(cobj, pobj = ., eobj = eobj)) %>%
-    purrr::map_lgl(~ ifelse(nrow(.) == 0, TRUE, all(.$check)))
-
-  # Only select canidates that meet constraints
-  port_eval_list <- purrr::keep(port_canidates, port_evals)
-
-  # Select optimal portfolio
-  if (length(port_eval_list) > 0) {
+    current_port_vals <- get_estimated_port_values(pobj = pobj, eobj = eobj)
     
-    opt_port_id <- port_eval_list %>%
-      purrr::map_df(.,
-                    get_estimated_port_values,
-                    eobj = eobj,
-                    .id = "id") %>%
-      dplyr::top_n(ifelse(minimize, -1, 1), !!rlang::sym(target)) %>%
-      .$id %>%
-      head(1)
-
-    port <- port_eval_list[opt_port_id][[1]]
+    if(minimize) {
+      if(top_candidate[[target]] < current_port_vals[[target]]) {
+        port_id <- top_candidate[[target]][1]
+      } else {
+        port_id <- 0
+      }
+    } else {
+      if(top_candidate[[target]] > current_port_vals[[target]]) {
+        port_id <- top_candidate$id[1]
+      } else {
+        port_id <- 0
+      }
+    }
+    
+    if(port_id == 0) {
+      new_port <- pobj
+    } else {
+      new_port <- port_canidates[[port_id]]$portfolio
+    }
+    
   } else {
-    port <- pobj
-    opt_port_id <- 0
+    port_id <- top_candidate$id[1]
+    new_port <- port_canidates[[port_id]]$portfolio
   }
+  
+  
 
   # Update Trade Pairs
   if(update_trade_pairs) {
     all_ids <- as.numeric(names(port_canidates))
-    active_ids <- as.numeric(names(port_eval_list))
+    active_ids <- as.numeric(names(purrr::keep(port_canidates, constraints_passed)))
     inactive_ids <- setdiff(all_ids, active_ids)
 
     trade_pairs <- trade_pairs %>%
       mutate(selected = ifelse(id %in% all_ids , selected + 1, selected),
              active = ifelse(id %in% active_ids, TRUE, FALSE),
-             trades = ifelse(id %in% opt_port_id, trades + 1, trades))
+             trades = ifelse(id %in% port_id, trades + 1, trades))
   }
 
-  list(portfolio = port, trade_pairs = trade_pairs)
+  list(portfolio = new_port, trade_pairs = trade_pairs)
 }
 
 
