@@ -4,7 +4,9 @@ sudo: false
 warnings_are_errors: false
 
 r_github_packages: 
+  - hadley/ggplot2
   - chrishaarstick/madstork
+
   
 r_packages:
  - devtools
@@ -14,7 +16,7 @@ r_packages:
  - quantmod
  - zoo
  - foreach
- - ggplot2
+
  - scales
  - checkmate
  - corpcor

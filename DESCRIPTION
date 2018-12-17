@@ -26,6 +26,6 @@ Suggests:
   docopt,
   DT
 Remotes: 
-  hadley/testthat,
+  hadley/ggplot2,
   chrishaarstick/madstork
 RoxygenNote: 6.1.0
