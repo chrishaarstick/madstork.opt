@@ -25,5 +25,7 @@ Suggests:
   testthat,
   docopt,
   DT
-Remotes: chrishaarstick/madstork
+Remotes: 
+  hadley/testthat,
+  chrishaarstick/madstork
 RoxygenNote: 6.1.0
