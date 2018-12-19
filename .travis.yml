@@ -1,3 +1,26 @@
 language: R
 cache: packages
+sudo: false
 warnings_are_errors: false
+
+r_github_packages: 
+  - hadley/ggplot2
+  - chrishaarstick/madstork
+
+  
+r_packages:
+ - devtools
+ - tidyverse
+ - magrittr
+ - lubridate
+ - quantmod
+ - zoo
+ - foreach
+
+ - scales
+ - checkmate
+ - corpcor
+ - future
+ - furrr
+ - testthat
+
