@@ -23,7 +23,7 @@ t1 <- Sys.time()
 lib_path <- .libPaths()[1]
 
 # R packages
-packages <- c("a2munge", "a2modeler", "a2charter", "dplyr", "tidyr", "readxl", "tibble", "purrr", "ggplot2", "forcats", "stringr", "lubridate", "sparklyr", "rlang", "madstork", "madstork.opt", "here", "ggrepel")
+packages <- c( "madstork", "madstork.opt", "mad4sight", "dplyr", "tidyr", "readxl", "tibble", "purrr", "ggplot2", "forcats", "stringr", "lubridate", "rlang", "here", "ggrepel")
 
 
 ```
@@ -36,25 +36,6 @@ for(pck in packages) library(pck, lib.loc = lib_path, character.only = TRUE)
 
 ```
 
-
-```{r spark-config}
-
-## Spark Configuration Parameters
-
-# Create Spark Connection
-spark <- TRUE
-
-# Spark Master
-spark_master <- "local"
-
-# Spark Version
-spark_version <- "2.3.0"
-
-# Additional Spark Configuration Settings. Add configuration with named element
-# in list
-spark_config_args <- list(spark.memory.fraction = 0.9)
-
-```
 
 
 ```{r portfolio-config}
@@ -108,7 +89,7 @@ mkt_preds <- read.csv(mkt_prediction_path)
 ```{r estimates}
 
 # Get all symbols to estimate
-symbols <- union(port$holdings$symbol, c(est_symbols, mkt_symbol))
+symbols <- union(as.character(port$holdings$symbol), c(as.character(est_symbols), mkt_symbol))
 
 # Define Start and End date
 #est_end_date <- today()
@@ -144,133 +125,6 @@ df <- est$returns %>%
 ```
 
 
-```{r spark-setup, eval = FALSE}
-
-# If Spark Option True, create connection
-if(spark) {
-  
-  conf <- modifyList(spark_config(), spark_config_args)
-  sc <- spark_connect(master = spark_master,
-                      version = spark_version,
-                      config = conf)
-}
-```
-
-
-```{r spark-import}
-
-# import train data into spark
-sdf <- df %>% 
-  select(-date) %>% 
-  dplyr::copy_to(sc, ., "train", overwrite = TRUE)
-```
-
-
-
-```{r feature-pipeline}
-
-# Feature Pipeline
-feature_pipe <- pipeline(expr = function(df) {
-  
-  syms <- distinct(df, symbol) %>% 
-    collect() %>% 
-    pull(symbol)
-  
-  select(df, return, SPY, symbol) %>% 
-    ft_string_indexer("symbol", "sym_index") %>%
-    ft_one_hot_encoder("sym_index", "sym_encode", drop_last =FALSE) %>%
-    sdf_separate_column("sym_encode", into = syms) %>%
-    select(-sym_index, -sym_encode, -symbol, -!!sym(syms[length(syms)]))
-},
-uid  = "Feature-Pipe",
-desc = "hot encoding feature pipe")
-
-```
-
-
-
-
-```{r interaction-pipeline}
-
-# Interaction Pipeline
-interact_pipe <- pipeline(expr = function(df) {
-  
-  syms <- distinct(df, symbol) %>% 
-    collect() %>% 
-    pull(symbol)
-  
-  df <- select(df, return, SPY, symbol) %>% 
-    ft_string_indexer("symbol", "sym_index") %>%
-    ft_one_hot_encoder("sym_index", "sym_encode", drop_last =FALSE) %>%
-    sdf_separate_column("sym_encode", into = syms) %>%
-    select(-sym_index, -sym_encode, -symbol, -!!sym(syms[length(syms)]))
-  
-  for(sym in syms[-length(syms)]) {
-    df <- df %>% 
-      ft_interaction(c("SPY", sym), paste0(sym, "_intr")) %>%
-      sdf_separate_column(paste0(sym, "_intr"), random_string(sym)) %>% 
-      select(-!!sym(paste0(sym, "_intr")))
-  }
-  
-  select(df, -SPY)
-},
-uid  = "Interaction-Pipe",
-desc = "hot encoding with interactions feature pipe")
-
-```
-
-
-```{r regressor}
-
-# Create Regressor
-r1 <- sdf %>% 
-  regressor(.,
-            "return",
-            name = "security-forecasts",
-            uid = sparklyr::random_string("regressor"),
-            version = "1.0.0",
-            desc = "Regression model to predict 1 year return for securities using sp500 market as predictor",
-            scientist = "Haarstick",
-            execution_strategy = "sequential",
-            refit = TRUE,
-            save_submodels = TRUE,
-            seed = 319) %>% 
-  set_measure(RMSE) %>% 
-  add_cross_validation_samples(folds = 2, test_holdout_prct = .1) %>% 
-  add_model(., 
-            method = "ml_linear_regression",
-            pipe = feature_pipe,
-            param_map = list(standardization = FALSE),
-            uid = "baseline",
-            desc = "Baseline Model") %>% 
-  add_model(.,
-            method = "ml_linear_regression",
-            pipe = feature_pipe,
-            param_map = list(standardization = FALSE,
-                             elastic_net_param = 1,
-                             reg_param = c(0.05, 0.01, 0.001)),
-            uid = "lasso",
-            desc = "Lasso regression model") %>%
-  add_model(.,
-            method = "ml_random_forest_regressor",
-            pipe = feature_pipe,
-            param_map = list(subsampling_rate = c(.75),
-                             num_trees = c(50, 250)),
-            uid = "randomForest",
-            desc = "Random Forest with minimal tuning") %>%
-  add_model(.,
-            method = "ml_gbt_regressor",
-            pipe = feature_pipe,
-            param_map = list(max_iter = c(25, 50),
-                             max_depth = c(2, 5),
-                             subsampling_rate = c(1)),
-            uid = "gbt",
-            desc = "GBT with moderate tuning") %>%
-  train_models() %>% 
-  set_final_model("best", reevaluate = TRUE, refit = TRUE)
-
-```
-
 
 ```{r predictions}
 
@@ -278,95 +132,71 @@ r1 <- sdf %>%
 mkt_preds <- read.csv(mkt_prediction_path)
 
 # Create test dataset
-test_df <- tibble(return = 0, 
-                  !!sym(mkt_symbol) := mkt_preds$predicted,
-                  symbol = setdiff(symbols, mkt_symbol))
+test_df <- tibble(!!sym(mkt_symbol) := tail(mkt_preds$cum_return, 1))
 
-# Apply model
-r1_preds <- test_df %>% 
-  copy_to(sc, ., "test", overwrite = TRUE) %>% 
-  predict(r1, .) 
-
-
-# Predictions
-preds <- r1_preds$predictions %>% 
-  collect() %>% 
-  bind_cols(select(test_df, symbol)) %>% 
-  select(symbol, predicted)
+# Create Predictions
+sym_preds <- df %>% 
+  base::split(.$symbol) %>% 
+  map(~lm(return ~ SPY, data = .)) %>% 
+  map_df(~predict(., newdata = test_df)) %>%
+  gather(key = "symbol", value = "predicted")
 
 ```
 
 
-```{r execution, eval=TRUE, ref.label=c('r-config', 'r-setup', 'spark-config', 'spark-setup', 'portfolio-config', 'estimates-config', 'prediction-config', 'load-objects', 'estimates', 'data-prep',  'spark-import', 'feature-pipeline', 'regressor', 'predictions')}
+```{r execution, eval=TRUE, ref.label=c('r-config', 'r-setup', 'portfolio-config', 'estimates-config', 'prediction-config', 'load-objects', 'estimates', 'data-prep', 'feature-pipeline', 'predictions')}
 ```
-
-
-```{r regressor-print, eval=TRUE, results='asis'}
-cat("##", r1$name, "Regressor", "\n")
-
-```
-
-* uid: __`r r1$uid` __ 
-* Version: __`r r1$version`__  
-* Created on: __`r as.character(r1$created_on)`__ 
-* Created by: __`r r1$scientist`__
-* Description: _`r r1$desc`_  
 
 
 ```{r data-print, eval=TRUE, results='asis'}
 dataset_name <- "Security Forecasts"
-cat("###", "Input Data:", dataset_name, "\n")
+cat("##", "Input Data:", dataset_name, "\n")
 
 ```
 
 
-#### Sample Records
+### Sample Records
 
 
 ```{r sample-records, eval=TRUE}
 
 # Datatable with sample records
-r1$data %>% 
-  collecter(sample = TRUE, method = "head", size = 100) %>% 
+df %>% 
   DT::datatable(.,
                 options = list(scrollX = TRUE),
                 caption = paste(dataset_name, "Sample Records")) %>% 
-  DT::formatRound(colnames(r1$data), digits=3)
+  DT::formatRound(colnames(df), digits=3)
 ```
 
 
 ```{r target-print, eval=TRUE, results='asis'}
-cat("###", "Target:", r1$target,"\n")
+cat("###$", "Target: Symbol Return", "\n")
 
 ```
 
 
 ```{r target-summary, eval=TRUE, fig.height=8}
 
-r1$data %>%
-  a2munge::collecter(sample = FALSE) %>% 
-  a2charter::gg_boxplot(., 
-                        "symbol",
-                        r1$target,
-                        sort = TRUE,
-                        desc = TRUE,
-                        coord = "flip",
-                        title = paste(paste0(r1$name, ":"), r1$target)) +
-  scale_y_continuous(label = scales::percent)
+ggplot(df, aes(y=return, x=reorder(symbol, return, FUN = median))) +
+  geom_boxplot() +
+  coord_flip() +
+  scale_y_continuous(label = scales::percent) +
+  theme_minimal() +
+  labs(title = "Symbol Return Distribution",
+       x = "")
 
-r1$data %>%
-  a2munge::collecter(sample = FALSE) %>% 
+df %>% 
   dplyr::group_by(symbol) %>% 
-  dplyr::summarise_at(r1$target, funs(min, mean, sd, max)) %>% 
+  dplyr::summarise_at("return", funs(min, mean, sd, max)) %>% 
   dplyr::ungroup() %>% 
   dplyr::arrange(mean) %>% 
   DT::datatable(., 
-                caption = paste(paste0(r1$name, ":"), r1$target, "Summary Stats")) %>% 
+                caption = "Symbol Return Summary Stats") %>% 
   DT::formatPercentage(2:5, digits = 1)
 ```
 
 
-### Features
+## Features
 
 ```{r feature-plot-1, eval=TRUE, fig.height=8}
 
@@ -390,7 +220,10 @@ df %>%
  select(date, symbol, return) %>% 
   spread(symbol, return) %>% 
   select(-date) %>%
-  a2munge::correlater() %>%
+  cor() %>%
+  as.data.frame() %>% 
+  mutate(var1 = rownames(.)) %>% 
+  gather(key = "var2", value = "cor", -var1) %>% 
   ggplot(., aes(var1, var2, fill = cor))+
   geom_tile(color = "white")+
   geom_text(aes(label = round(cor, 2)), color = "black", size = 4) +
@@ -406,119 +239,6 @@ df %>%
        y = "")
 ```
 
-
-### Pipelines
-
-
-```{r pipeline-print, eval=TRUE}
-for(p in seq_along(r1$pipelines)) {
-  print(r1$pipelines[[p]])
-}
-```
-
-
-### Models
-
-
-```{r models-print, eval=TRUE, results='asis'}
-
-for(i in seq_along(r1$models)) {
-  cat("####", names(r1$models)[i])
-  cat("\n")
-  cat("* Method:", paste0("__", r1$models[[i]]$method, "__"), "\n")
-  cat("* Package:", paste0("__", r1$models[[i]]$package, "__"), "\n")
-  cat("* Pipeline:", paste0("__", r1$models[[i]]$pipe, "__"), "\n")
-  cat("* Status:", paste0("__", r1$models[[i]]$status, "__"), "\n")
-  cat("* Last Updated:", paste0("__", r1$models[[i]]$last_updated, "__"), "\n")
-  cat("\n")
-  
-  cat("##### Parameter Tuning:\n")
-  for(p in seq_along(r1$models[[i]]$param_map)) {
-    cat("*",
-        paste0(names(r1$models[[i]]$param_map)[p], ":"),
-        paste(r1$models[[i]]$param_map[[p]], collapse = ", "),
-        "\n")
-  }
-  cat("\n")
-}
-
-```
-
-
-### Leaderboard
-
-
-```{r leaderboard, eval=TRUE}
-r1$performance %>% 
-  dplyr::select(model_uid, pipeline_uid, method, param_grid, sample, !!r1$measure$method) %>% 
-  dplyr::arrange_at(r1$measure$method) %>% 
-  knitr::kable(.,
-               digits = 3,
-               caption = paste(r1$name, "Model Leaderboard"))
-```
-
-
-### Baseline Model
-
-```{r baseline, eval=TRUE}
-
-baseline <- r1$models$baseline$fit$stages[[2]]
-features <- setdiff(colnames(baseline$summary$predictions),
-                    c(r1$target, "features", "label", "prediction"))
-tibble(feature  = c("Intercept", features),
-       estimate = c(baseline$intercept, baseline$coefficients),
-       stderr   = baseline$summary$coefficient_standard_errors,
-       t_stat   = baseline$summary$t_values,
-       p_values = baseline$summary$p_values) %>% 
-  knitr::kable(.,
-               digits = 3,
-               caption = "Baseline Model Coefficients Summary")
-
-tibble(r2   = baseline$summary$r2,
-       rmse = baseline$summary$root_mean_squared_error,
-       mse  = baseline$summary$mean_squared_error,
-       mae  = baseline$summary$mean_absolute_error) %>% 
-  knitr::kable(.,
-               digits = 3,
-               caption = "Baseline Model Fit Summary")
-```
-
-
-
-### Final Model
-
-
-```{r final-model, eval=TRUE, results='asis'}
-
-cat("* uid:", paste0("__", r1$final_model$uid, "__"), "\n")
-cat("* Method:", paste0("__", r1$final_model$method, "__"), "\n")
-cat("* Package:", paste0("__", r1$final_model$package, "__"), "\n")
-cat("* Status:", paste0("__", r1$final_model$status, "__"), "\n")
-cat("* Last Updated:", paste0("__", r1$final_model$last_updated, "__"), "\n")
-cat("\n")
-
-```
-
-
-```{r final-model-params, eval=TRUE}
-
-r1$final_model$fit$stages[[2]]$param_map %>%
-  as.data.frame() %>%
-  tidyr::gather(key = "parameter") %>% 
-  dplyr::filter(! grepl("_col|seed", parameter)) %>% 
-  knitr::kable(.,
-               table.attr = "style='width:30%;'",
-               caption = "Final Model Parameters")
-```
-
-
-```{r test-fit-print, eval=TRUE, results='asis'}
-if(! is.null(r1$samples$test_holdout_prct)) {
-  cat("#### Test Holdout Fit\n")
-  cat("Final Model Performance on Test Holdout:\n\n")
-  cat("*", r1$measure$method, "=", round(r1$final_model$test_performance[[1]], 3), "\n")
-}
-```
 
 
 
@@ -537,7 +257,7 @@ knitr::kable(mkt_preds,
 
 ```{r predictions-plot, eval=TRUE, fig.height=6}
 
-preds_sum <- preds %>%
+preds_sum <- sym_preds %>%
   inner_join(est$mu, by = "symbol") %>% 
   inner_join(est$sigma %>% 
                diag() %>%
@@ -550,12 +270,12 @@ preds_sum <- preds %>%
 
 preds_sum %>%
     gather(key = "metric", value = "return", -symbol, -`Std Dev`) %>% 
-    ggplot(aes(x=`Std Dev`, y=`return`))) +
+    ggplot(aes(x=`Std Dev`, y=`return`)) +
     geom_point(color = "red", size = 2) +
-    geom_text_repel() +
-    geom_hline(linetype = 5, color = "grey75", yintercept = mkt_preds$predicted) +
+    geom_text_repel(aes(label = symbol)) +
+    geom_hline(linetype = 5, color = "grey75", yintercept = test_df[[mkt_symbol]]) +
     facet_wrap(~metric, ncol = 2) +
-    theme_sncr() +
+    theme_minimal() +
     guides(color = FALSE, label = FALSE) +
     scale_color_madstork() +
     scale_x_continuous(labels = scales::percent) +
