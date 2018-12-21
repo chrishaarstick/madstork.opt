@@ -315,14 +315,14 @@ saveRDS(est, file = current_pred_path)
 ```
 
 
-```{r regressor-config, echo=TRUE, eval=FALSE, ref.label=c('feature-pipeline', 'regressor')}
+```{r predictor-config, echo=TRUE, eval=FALSE, ref.label=c('predictions')}
 
 ```
 
 
 ## Appendix
 
-```{r config, echo=TRUE, eval=FALSE, ref.label=c('r-config', 'spark-config')}
+```{r config, echo=TRUE, eval=FALSE, ref.label=c('r-config')}
 
 ```
 
