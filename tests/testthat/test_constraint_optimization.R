@@ -30,7 +30,7 @@ trade_amount <- 2000
 
 
 # Create Portfolio
-p1 <- portfolio("new_port", cash=0) %>%
+p1 <- portfolio("new_port") %>%
   make_deposit(amount = port_amount) %>%
   make_buy(symbol = "SPY", quantity = 100, price = p$SPY) %>%
   make_buy(symbol = "QQQ", quantity = 100, price = p$QQQ) %>%

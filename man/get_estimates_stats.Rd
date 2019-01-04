@@ -13,5 +13,5 @@ get_estimates_stats(eobj)
 Function gets Estimates stats by symobl
 }
 \details{
-Returns mu return, standard deviation, sharpe ratio and annual dividend
+Returns mu return, standard deviation, sharpe ratio and annual dividend yield
 }

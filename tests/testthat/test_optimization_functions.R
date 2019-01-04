@@ -30,7 +30,7 @@ trade_amount <- 2000
 
 
 # Create Portfolio
-p1 <- portfolio("new_port", cash=0) %>%
+p1 <- portfolio("new_port") %>%
   make_deposit(amount = port_amount) %>%
   make_buy(symbol = "SPY", quantity = 100, price = p$SPY) %>%
   make_buy(symbol = "QQQ", quantity = 100, price = p$QQQ) %>%
@@ -175,9 +175,9 @@ test_that("Improves Failed Symbol Constraints", {
     get_symbol_estimates_share(e1) %>%
     split(.$symbol) %>%
     map("portfolio_share")
-  expect_gt(po_opt_shares$SPY, .3)
-  expect_gt(po_opt_shares$QQQ, .2)
-  expect_lt(po_opt_shares$GLD, 0.1)
+  expect_gt(po_opt_shares$SPY, .295)
+  expect_gt(po_opt_shares$QQQ, .195)
+  expect_lt(po_opt_shares$GLD, 0.105)
 
   po_opt_cc <- check_constraints(c2, po_opt$optimal_portfolio, e1 )
   expect_true(all(po_opt_cc$check))
@@ -191,7 +191,7 @@ test_that("Testing Estimate Symbol setdiff", {
   
   
   # Create Portfolio
-  p3 <- portfolio("new_port", cash=0) %>%
+  p3 <- portfolio("new_port") %>%
     make_deposit(amount = 15000) %>%
     make_buy(symbol = "TLT", quantity = 30, price = 100) %>%
     update_market_value(prices)

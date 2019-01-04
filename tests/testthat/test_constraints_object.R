@@ -19,7 +19,7 @@ prices <- test_prices
 p <- prices %>% split(.$symbol) %>% map("price")
 
 # Create Portfolio
-p1 <- portfolio("new_port", cash=0) %>%
+p1 <- portfolio("new_port") %>%
   make_deposit(amount = 100000) %>%
   make_buy(symbol = "SPY", quantity = 50, price = p$SPY) %>%
   make_buy(symbol = "QQQ", quantity = 50, price = p$QQQ) %>%

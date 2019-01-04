@@ -165,7 +165,7 @@ df %>%
   DT::datatable(.,
                 options = list(scrollX = TRUE),
                 caption = paste(dataset_name, "Sample Records")) %>% 
-  DT::formatRound(colnames(df), digits=3)
+  DT::formatRound(c(2,4), digits=3)
 ```
 
 
@@ -178,7 +178,7 @@ cat("###$", "Target: Symbol Return", "\n")
 ```{r target-summary, eval=TRUE, fig.height=8}
 
 ggplot(df, aes(y=return, x=reorder(symbol, return, FUN = median))) +
-  geom_boxplot() +
+  geom_boxplot(fill = madstork_cols("dark blue"), alpha=.4) +
   coord_flip() +
   scale_y_continuous(label = scales::percent) +
   theme_minimal() +
@@ -205,28 +205,28 @@ df %>%
   group_by(symbol) %>% 
   mutate(cum_return = cumprod(return + 1) - 1) %>%
   ungroup() %>% 
-  gg_line_chart("date",
-                "cum_return",
-                facet_formula = "~symbol",
-                facet_args = list(scales = "free", ncol = 5),
-                theme = "minimal")
+  ggplot(aes(x=date, y=cum_return))+
+  geom_line(color = madstork_cols("dark blue"), alpha=.8)+
+  scale_y_continuous(labels = scales::percent) +
+  facet_wrap("~symbol", scales = "free", ncol=5)+
+  theme_minimal()+
+  labs(title="Symbol Cumulative Returns",
+       y = "Cumulated Return")
 ```
 
 
 
 ```{r feature-plot-2, eval=TRUE, fig.height=8}
 
-df %>% 
- select(date, symbol, return) %>% 
-  spread(symbol, return) %>% 
-  select(-date) %>%
-  cor() %>%
+
+est$sigma %>%
+  cov2cor() %>% 
   as.data.frame() %>% 
   mutate(var1 = rownames(.)) %>% 
   gather(key = "var2", value = "cor", -var1) %>% 
   ggplot(., aes(var1, var2, fill = cor))+
   geom_tile(color = "white")+
-  geom_text(aes(label = round(cor, 2)), color = "black", size = 4) +
+  geom_text(aes(label = round(cor, 2)), color = "black", size = 3) +
   scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
                        midpoint = 0, limit = c(-1,1), space = "Lab", 
                        name="Correlation") +
@@ -235,6 +235,7 @@ df %>%
                                    size = 12, hjust = 1)) +
   coord_fixed() +
   labs(title = "Security Correlation Heatmap",
+       subtitle = "Shrinkage Estimate",
        x = "",
        y = "")
 ```
@@ -296,7 +297,7 @@ preds_sum %>%
 
 ```{r estimates-write, eval=TRUE, echo=FALSE}
 
-est$mu <- preds %>% 
+est$mu <- sym_preds %>% 
   select(symbol, return = predicted) %>% 
   arrange(symbol)
 

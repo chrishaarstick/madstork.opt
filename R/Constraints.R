@@ -497,6 +497,7 @@ meet_constraint.symbol_constraint <- function(constraint,
     }
 
     total_amount <- get_market_value(port) %>%
+      dplyr::filter(date == max(date)) %>% 
       dplyr::filter(last_updated == max(last_updated)) %>%
       dplyr::pull(net_value) *
       abs(share_amount)
@@ -602,9 +603,10 @@ check_constraint.cash_constraint <- function(constraint,
                                              ...) {
   checkmate::assert_class(pobj, "portfolio")
   share <- get_market_value(pobj) %>%
+    dplyr::filter(date == max(date)) %>%
     dplyr::filter(last_updated == max(last_updated)) %>%
     dplyr::mutate(cash_share = cash/net_value) %>%
-    .$cash_share
+    dplyr::pull(cash_share)
   check <- ifelse(share < constraint$min |
                     share > constraint$max, FALSE, TRUE)
   data.frame(
@@ -657,6 +659,7 @@ meet_constraint.cash_constraint <- function(constraint,
     }
 
     total_amount <- get_market_value(port) %>%
+      dplyr::filter(date == max(date)) %>% 
       dplyr::filter(last_updated == max(last_updated)) %>%
       dplyr::pull(net_value) *
       abs(share_amount)
@@ -1056,6 +1059,7 @@ meet_constraint.group_constraint <- function(constraint,
     }
     
     total_amount <- get_market_value(port) %>%
+      dplyr::filter(date == max(date)) %>% 
       dplyr::filter(last_updated == max(last_updated)) %>%
       dplyr::pull(net_value) *
       abs(share_amount)

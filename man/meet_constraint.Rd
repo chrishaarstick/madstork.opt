@@ -22,7 +22,7 @@ meet_constraint(constraint, pobj, cobj, eobj, prices, trade_pairs,
 
 \method{meet_constraint}{cardinality_constraint}(constraint, pobj, cobj,
   eobj, prices, trade_pairs, target, minimize, amount, lot_size,
-  max_iter = 5, ...)
+  max_iter = 5, n_syms = 3, ...)
 
 \method{meet_constraint}{group_constraint}(constraint, pobj, cobj, eobj,
   prices, trade_pairs, target, minimize, amount, lot_size, max_iter = 5,
@@ -30,7 +30,7 @@ meet_constraint(constraint, pobj, cobj, eobj, prices, trade_pairs,
 
 \method{meet_constraint}{performance_constraint}(constraint, pobj, cobj,
   eobj, prices, trade_pairs, target, minimize, amount, lot_size,
-  max_iter = 5, ...)
+  max_iter = 5, max_pairs = 50, ...)
 }
 \arguments{
 \item{constraint}{constraint object}

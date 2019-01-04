@@ -5,7 +5,7 @@
 \title{Portfolio Optimization Constructor Function}
 \usage{
 portfolio_optimization(pobj, eobj, cobj, prices = NULL, target,
-  desc = "", version = 1)
+  desc = "", version = 1, backend = "sequential")
 }
 \arguments{
 \item{pobj}{portfolio object}
@@ -21,6 +21,9 @@ portfolio_optimization(pobj, eobj, cobj, prices = NULL, target,
 \item{desc}{optional meta-data description input}
 
 \item{version}{optional input for version}
+
+\item{backend}{future backend mode. `sequential` creates single threaded
+execution. `multisession` creates parrallel backend}
 }
 \value{
 portfolio_optimization class

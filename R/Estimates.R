@@ -455,6 +455,7 @@ get_estimated_port_stats <- function(pobj, eobj, port_only = FALSE) {
   
   pmv <- tail(get_market_value(pobj), 1)
   pmv$investments_annual_income <- sum(hmv$annual_income)
+  
   yield <- tibble(
     type = as.character(c("investments", "portfolio")),
     yield = c(pmv$investments_annual_income/pmv$investments_value,
@@ -488,8 +489,13 @@ get_estimated_port_values <- function(pobj, eobj) {
   checkmate::assert_class(pobj, "portfolio")
   checkmate::assert_class(eobj, "estimates")
 
-  mv <- dplyr::filter(pobj$market_value, last_updated == max(last_updated))
   hmv <- get_holdings_market_value(pobj)
+  
+  mv <- pobj$market_value %>% 
+    dplyr::filter(date == max(date)) %>% 
+    dplyr::filter(last_updated == max(last_updated))
+  mv$investments_annual_income <- sum(hmv$annual_income)
+ 
   sym_share <- get_symbol_estimates_share(pobj, eobj) %>%
     dplyr::mutate_at("portfolio_share", funs(./sum(.))) %>%
     .$portfolio_share
