@@ -6,6 +6,9 @@ output:
   html_document:
     toc: true
     theme: united
+params:
+  portfolio_path: ./portfolio.RData
+  estimates_path: ./ests.rds
 ---
 
 
@@ -17,14 +20,15 @@ t1 <- Sys.time()
 ```
 
 
+
+
 ```{r r-config}
 
 # Library Path
 lib_path <- .libPaths()[1]
 
 # R packages
-packages <- c("a2munge", "a2modeler", "a2charter", "dplyr", "tidyr", "readxl", "tibble", "purrr", "ggplot2", "forcats", "stringr", "lubridate", "rlang", "madstork", "madstork.opt", "here", "knitr", "DT", "ggrepel")
-
+packages <- c("madstork", "madstork.opt", "madutils","dplyr", "tidyr", "readxl", "tibble", "purrr", "ggplot2", "forcats", "stringr", "lubridate", "rlang",  "here", "knitr", "DT", "ggrepel")
 
 ```
 
@@ -38,30 +42,18 @@ for(pck in packages) library(pck, lib.loc = lib_path, character.only = TRUE)
 
 
 
-```{r portfolio-config}
-
-# Path to MadStork Portfolio Object
-portfolio_path <- ""
-```
-
-
-
-```{r estimates-config}
-
-# Path to Estimates Object
-estimates_path <- ""
-```
 
 
 ```{r load-objects}
 
 # Load portfolio object
-port <- load_portfolio(portfolio_path)
+port <- load_portfolio(params$portfolio_path)
 
 # load market predictions
-est <- readRDS(estimates_path)
+est <- readRDS(params$estimates_path)
 
 ```
+
 
 
 ```{r port-stats}
@@ -120,7 +112,7 @@ po_opt <- optimize(po,
 ```
 
 
-```{r execution, eval=TRUE, ref.label=c('r-config', 'r-setup', 'portfolio-config', 'estimates-config', 'load-objects', 'constraints', 'optimization-config', 'portfolio-optimization')}
+```{r execution, eval=TRUE, ref.label=c('r-config', 'r-setup', 'load-objects', 'constraints', 'optimization-config', 'portfolio-optimization')}
 
 ```
 
@@ -177,7 +169,7 @@ get_estimates_stats(est) %>%
   geom_point(color = "red", size = 2) +
   geom_text_repel() + 
   geom_abline(linetype = 5, color = "grey75") +
-  theme_sncr() +
+  theme_minimal() +
   guides(color = FALSE, label = FALSE) +
   scale_color_madstork() +
   scale_x_continuous(labels = scales::percent) +
@@ -310,9 +302,9 @@ check_constraints(po_opt$constraints,
 po_opt$trade_pairs %>% 
   arrange(-trades) %>% 
   datatable(.,
-             filter = "top",
+            filter = "top",
             caption = "Optimization Trade Pairs") %>% 
-  formatRound(4:6, digits = 3)
+  formatRound(c(4:6, 10), digits = 3)
 ```
 
 
