@@ -423,7 +423,9 @@ get_estimated_port_stats <- function(pobj, eobj, port_only = FALSE) {
   checkmate::assert_class(eobj, "estimates")
   checkmate::assert_subset(as.character(pobj$holdings$symbol), eobj$symbols)
   
-  mu <- madstork::get_holdings_market_value(pobj) %>%
+  hmv <- madstork::get_holdings_market_value(pobj)
+  
+  mu <- hmv %>%
     dplyr::select(symbol, investments_share, portfolio_share) %>%
     tidyr::gather(key="type", value="mu", -symbol) %>%
     dplyr::inner_join(get_mu(eobj) %>%
@@ -434,7 +436,7 @@ get_estimated_port_stats <- function(pobj, eobj, port_only = FALSE) {
     dplyr::mutate(type = gsub("_share", "", type)) %>%
     dplyr::ungroup()
   
-  ehmv <- get_holdings_market_value(pobj) %>%
+  ehmv <- hmv %>%
     dplyr::right_join(tibble(symbol = eobj$symbols), by = "symbol") %>%
     dplyr::mutate(symbol = factor(symbol, levels = eobj$symbols)) %>%
     dplyr::arrange(symbol) %>%
@@ -452,6 +454,7 @@ get_estimated_port_stats <- function(pobj, eobj, port_only = FALSE) {
   )
   
   pmv <- tail(get_market_value(pobj), 1)
+  pmv$investments_annual_income <- sum(hmv$annual_income)
   yield <- tibble(
     type = as.character(c("investments", "portfolio")),
     yield = c(pmv$investments_annual_income/pmv$investments_value,
