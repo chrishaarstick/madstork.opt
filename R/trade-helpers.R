@@ -46,7 +46,7 @@ get_sell_trades <- function(pobj,
   while (continue) {
     i <- i + 1
     h1 <- holdings[i,]
-    if(nrow(h1$market_value) > 0) {
+    if(nrow(h1) > 0) {
       if (amount > h1$market_value) {
         if (partial) {
           s1 <- madstork::to_tibble(sell(

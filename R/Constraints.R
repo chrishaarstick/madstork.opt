@@ -1052,10 +1052,10 @@ meet_constraint.group_constraint <- function(constraint,
 
     if(share_amount < 0) {
       tp <- trade_pairs %>%
-        dplyr::filter(buy %in% syms)
+        dplyr::filter(buy %in% syms & (!sell %in% syms))
     } else {
       tp <- trade_pairs %>%
-        dplyr::filter(sell %in% syms)
+        dplyr::filter(sell %in% syms & (!buy %in% syms))
     }
     
     total_amount <- get_market_value(port) %>%
@@ -1065,7 +1065,7 @@ meet_constraint.group_constraint <- function(constraint,
       abs(share_amount)
     
     trade_amount <- dplyr::case_when(
-      total_amount > amount ~ total_amount/max_iter,
+      total_amount > amount ~ max(total_amount/max_iter, amount),
       TRUE ~  total_amount)
     
     nbto_opt <- nbto_optimize(
