@@ -46,7 +46,9 @@ get_sell_trades <- function(pobj,
   while (continue) {
     i <- i + 1
     h1 <- holdings[i,]
-    if(nrow(h1) > 0) {
+    if(nrow(h1) == 0){
+      continue <- FALSE 
+    }else {
       if (amount > h1$market_value) {
         if (partial) {
           s1 <- madstork::to_tibble(sell(
@@ -58,20 +60,20 @@ get_sell_trades <- function(pobj,
           s1$id <- h1$id
           sells <- rbind(sells, s1)
         }
-      } 
-    }else{
-      quantity <- amount %/% (h1$price * lot_size) * lot_size
-      s1 <- madstork::to_tibble(sell(
-        date = Sys.Date(),
-        symbol = as.character(h1$symbol),
-        quantity = quantity,
-        price = h1$price
-      ))
-      s1$id <- h1$id
-      sells <- rbind(sells, s1)
+      }else{
+        quantity <- amount %/% (h1$price * lot_size) * lot_size
+        s1 <- madstork::to_tibble(sell(
+          date = Sys.Date(),
+          symbol = as.character(h1$symbol),
+          quantity = quantity,
+          price = h1$price
+        ))
+        s1$id <- h1$id
+        sells <- rbind(sells, s1)
+      }
+      amount <- amount - h1$quantity * h1$price
+      continue <- all(i < nrow(holdings), amount > 0)
     }
-    amount <- amount - h1$quantity * h1$price
-    continue <- all(i < nrow(holdings), amount > 0)
   }
   
   sells
