@@ -493,8 +493,9 @@ get_estimated_port_values <- function(pobj, eobj) {
   
   mv <- pobj$market_value %>% 
     dplyr::filter(date == max(date)) %>% 
-    dplyr::filter(last_updated == max(last_updated))
-  mv$investments_annual_income <- sum(hmv$annual_income)
+    dplyr::filter(last_updated == max(last_updated)) %>% 
+    dplyr::mutate(investments_annual_income = sum(hmv$annual_income))
+
  
   sym_share <- get_symbol_estimates_share(pobj, eobj) %>%
     dplyr::mutate_at("portfolio_share", funs(./sum(.))) %>%
