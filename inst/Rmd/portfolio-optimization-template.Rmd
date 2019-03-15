@@ -1,6 +1,6 @@
 ---
-title: "MadStork - Portfolio Optimization Template"
-author: "Haarstick"
+title: "MadStork Portfolio Optimization"
+author: "MJ Individual"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output: 
   html_document:
@@ -37,10 +37,8 @@ packages <- c("madstork", "madstork.opt", "madutils","dplyr", "tidyr", "readxl",
 
 # Load Libraries
 for(pck in packages) library(pck, lib.loc = lib_path, character.only = TRUE)
-
+data("etf_symbols")
 ```
-
-
 
 
 
@@ -49,12 +47,27 @@ for(pck in packages) library(pck, lib.loc = lib_path, character.only = TRUE)
 # Load portfolio object
 port <- load_portfolio(params$portfolio_path)
 
-# load market predictions
-est <- readRDS(params$estimates_path)
-
 ```
 
 
+
+```{r estimates-config}
+
+## Configure estimates
+
+# Set symbols - will create union with portfolio holding symbols
+est_symbols <- as.character(etf_symbols$base$symbol)
+
+# Set grain
+est_grain <- "year"
+
+# Set Periods 
+est_periods <- 1
+
+# Set Horizon
+est_horizon <- 15
+
+```
 
 ```{r port-stats}
 

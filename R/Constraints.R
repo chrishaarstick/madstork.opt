@@ -226,7 +226,7 @@ restrict_trading <- function(cobj, symbols) {
 #' @export
 set_sell_symbols <- function(cobj, symbols) {
   checkmate::assert_class(cobj, "constraints")
-  checkmate::assert_subset(symbols, cobj$symbols)
+  checkmate::assert_subset(symbols, c("CASH", cobj$symbols))
   
   cobj$trade_symbols$sell_symbols <- symbols
   

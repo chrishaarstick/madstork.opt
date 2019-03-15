@@ -262,3 +262,32 @@ test_that("Restricting Trades optimization works as expected", {
       pull(quantity)
   )
 })
+
+
+
+test_that("Sell only optimization works as expected", {
+  
+  # Create Constraints
+  c3 <- constraints(symbols = e1$symbols) %>%
+   set_sell_symbols(symbols = "CASH")
+  
+  # Create Optimization
+  po <- portfolio_optimization(p1, e1, c3, prices, target = "return")
+  
+  expect_false(all(e1$symbols %in% po$trade_pairs$sell))
+  expect_true(all(po$trade_pairs$sell == "CASH"))
+  
+  # Optimize
+  po_opt <- optimize(po,
+                     n_pairs = .npairs,
+                     amount = trade_amount,
+                     lot_size = .lot_size,
+                     max_iter = .max_iters,
+                     max_runtime = .max_runtime,
+                     improve_lag = .improve_lag,
+                     min_improve = .001,
+                     plot_iter = FALSE)
+  
+  expect_lte(po_opt$optimal_portfolio$cash, p1$cash)
+})
+

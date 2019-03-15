@@ -206,17 +206,22 @@ nbto <- function(pobj,
   if(include_port) {
     current_port_vals <- get_estimated_port_values(pobj = pobj, eobj = eobj)
     
-    if(minimize) {
-      if(top_candidate[[target]] < current_port_vals[[target]]) {
-        port_id <- top_candidate[[target]][1]
+    if(is.null(top_candidate[[target]]) | is.null(current_port_vals[[target]])) {
+      port_id <- 0
+    }else {
+      
+      if(minimize) {
+        if(top_candidate[[target]] < current_port_vals[[target]]) {
+          port_id <- top_candidate[[target]][1]
+        } else {
+          port_id <- 0
+        }
       } else {
-        port_id <- 0
-      }
-    } else {
-      if(top_candidate[[target]] > current_port_vals[[target]]) {
-        port_id <- top_candidate$id[1]
-      } else {
-        port_id <- 0
+        if(top_candidate[[target]] > current_port_vals[[target]]) {
+          port_id <- top_candidate$id[1]
+        } else {
+          port_id <- 0
+        }
       }
     }
     
@@ -443,39 +448,41 @@ optimize <- function(obj,
 
   # Meet Constraints
   n_constraints <- length(obj$constraints$constraints)
-  for(n in 1:n_constraints) {
-    n_idx <- if(n == 1) 0 else 1:(n - 1)
-    
-    # Meet constraint
-    constraint <- filter_constraints(obj$constraints, n)
-    port <- meet_constraint(constraint$constraints[[1]],
-                            pobj        = obj$optimal_portfolio,
-                            cobj        = filter_constraints(obj$constraints, n_idx),
-                            eobj        = obj$estimates,
-                            prices      = obj$prices,
-                            trade_pairs = obj$trade_pairs,
-                            target      = obj$target,
-                            minimize    = minimize,
-                            amount      = amount,
-                            lot_size    = lot_size,
-                            max_iter    = max_iter)
-
-    # Update Obj
-    if(nrow(get_trades(port)) > nrow(get_trades(obj$optimal_portfolio))) {
+  if(n_constraints > 0) {
+    for(n in 1:n_constraints) {
+      n_idx <- if(n == 1) 0 else 1:(n - 1)
       
-      obj$optimal_portfolio <- port
-      obj$portfolios <- c(obj$portfolios, list(port))
-      obj$portfolio_values <- obj$portfolio_values %>%
-        rbind(get_estimated_port_values(port, obj$estimates) %>%
-                dplyr::mutate(iter = n + prev_iter))
+      # Meet constraint
+      constraint <- filter_constraints(obj$constraints, n)
+      port <- meet_constraint(constraint$constraints[[1]],
+                              pobj        = obj$optimal_portfolio,
+                              cobj        = filter_constraints(obj$constraints, n_idx),
+                              eobj        = obj$estimates,
+                              prices      = obj$prices,
+                              trade_pairs = obj$trade_pairs,
+                              target      = obj$target,
+                              minimize    = minimize,
+                              amount      = amount,
+                              lot_size    = lot_size,
+                              max_iter    = max_iter)
       
-      holding_symbols <- as.character(unique(obj$optimal_portfolio$holdings$symbol))
-      constraint_sell_symbols <- intersect(obj$constraints$trade_symbols$sell_symbols, holding_symbols)
-      
-      obj$constraints <- set_sell_symbols(obj$constraints, constraint_sell_symbols)
-      obj$trade_pairs <- trade_pairs(obj$estimates, obj$constraints, obj$target, obj$criteria)
-
-      if(plot_iter) print(po_target_chart(obj))
+      # Update Obj
+      if(nrow(get_trades(port)) > nrow(get_trades(obj$optimal_portfolio))) {
+        
+        obj$optimal_portfolio <- port
+        obj$portfolios <- c(obj$portfolios, list(port))
+        obj$portfolio_values <- obj$portfolio_values %>%
+          rbind(get_estimated_port_values(port, obj$estimates) %>%
+                  dplyr::mutate(iter = n + prev_iter))
+        
+        holding_symbols <- as.character(unique(obj$optimal_portfolio$holdings$symbol))
+        constraint_sell_symbols <- intersect(obj$constraints$trade_symbols$sell_symbols, holding_symbols)
+        
+        obj$constraints <- set_sell_symbols(obj$constraints, constraint_sell_symbols)
+        obj$trade_pairs <- trade_pairs(obj$estimates, obj$constraints, obj$target, obj$criteria)
+        
+        if(plot_iter) print(po_target_chart(obj))
+      }
     }
   }
   
