@@ -24,3 +24,5 @@ r_packages:
  - furrr
  - testthat
 
+ after_success:
+    - Rscript -e 'covr::codecov()'
