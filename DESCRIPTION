@@ -22,9 +22,10 @@ Imports:
   future,
   furrr
 Suggests: 
-  testthat,
-  docopt,
-  DT
+    testthat,
+    docopt,
+    DT,
+    covr
 Remotes: 
   hadley/ggplot2,
   chrishaarstick/madstork
