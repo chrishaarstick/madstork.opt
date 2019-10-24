@@ -108,4 +108,9 @@ test_that("restricting trades works as expected", {
   c1.2 <- restrict_trading(c1, symbols = "GLD")
   expect_equal(c1.2$symbols, c("SPY", "QQQ", "TLT"))
   
+  
+  c1.3 <- constraints(symbols = e1$symbols) %>%
+    set_sell_symbols("CASH")
+  expect_equal(c1.3$trade_symbols$sell_symbols, "CASH")
+  
 })

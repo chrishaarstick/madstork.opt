@@ -11,18 +11,21 @@ library(checkmate)
 
 context("Estimates Class")
 
-# Create Estimates Class
-yrs <- 5
-syms <- c("SPY", "TLT", "GLD")
-e1 <- estimates(symbols = syms,
-                start_date = Sys.Date() - years(yrs),
-                end_date = Sys.Date(),
-                grain = "year",
-                periods = 1) %>%
-  add_sample_mu() %>%
-  add_sample_sigma() %>%
-  add_dividends()
+# # Create Estimates Class
+# yrs <- 5
+# syms <- c("SPY", "TLT", "GLD")
+# e1 <- estimates(symbols = syms,
+#                 start_date = Sys.Date() - years(yrs),
+#                 end_date = Sys.Date(),
+#                 grain = "year",
+#                 periods = 1) %>%
+#   add_sample_mu() %>%
+#   add_sample_sigma() %>%
+#   add_dividends()
 
+e1 <- test_estimates %>% 
+  add_sample_mu() %>%
+  add_sample_sigma() 
 
 
 test_that("helper functions creates object of class estimats",{
