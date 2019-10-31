@@ -16,7 +16,6 @@ r_packages:
  - quantmod
  - zoo
  - foreach
-
  - scales
  - checkmate
  - corpcor
@@ -24,5 +23,5 @@ r_packages:
  - furrr
  - testthat
 
- after_success:
-    - Rscript -e 'covr::codecov()'
+after_success:
+ - Rscript -e 'covr::codecov()'
