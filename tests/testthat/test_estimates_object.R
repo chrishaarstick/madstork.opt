@@ -11,14 +11,16 @@ library(checkmate)
 
 context("Estimates Class")
 
-# # Create Estimates Class
-# yrs <- 5
-# syms <- c("SPY", "TLT", "GLD")
+# Create Estimates Class
+yrs <- 10
+.grain <- "year"
+.periods <- 1
+syms <- c("SPY", "QQQ", "TLT", "GLD")
 # e1 <- estimates(symbols = syms,
 #                 start_date = Sys.Date() - years(yrs),
 #                 end_date = Sys.Date(),
-#                 grain = "year",
-#                 periods = 1) %>%
+#                 grain = .grain,
+#                 periods = .periods) %>%
 #   add_sample_mu() %>%
 #   add_sample_sigma() %>%
 #   add_dividends()
