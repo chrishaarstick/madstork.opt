@@ -496,6 +496,15 @@ get_estimated_port_values <- function(pobj, eobj) {
     dplyr::filter(last_updated == max(last_updated)) %>% 
     dplyr::mutate(investments_annual_income = sum(hmv$annual_income))
 
+  if(nrow(mv) == 0) {
+    # mv <- tibble(cash = pobj$cash,
+    #              investments_value = 0,
+    #              loans = 0,
+    #              tax_liability = pobj$tax_liability,
+    #              net_value = cash + investments_value,
+    #              investments_annual_income = 0)
+    stop("portfolio missing market values: run `update_market_value(pobj)` function")
+  }
  
   sym_share <- get_symbol_estimates_share(pobj, eobj) %>%
     dplyr::mutate_at("portfolio_share", funs(./sum(.))) %>%
@@ -505,14 +514,19 @@ get_estimated_port_values <- function(pobj, eobj) {
     dplyr::inner_join(get_mu(eobj), by = "symbol") %>%
     dplyr::summarise_at("market_value", dplyr::funs(sum(. * (1 + return))))
 
+  
   risk <- mv$investments_value * as.numeric(sqrt(sym_share %*% get_sigma(eobj) %*% sym_share))
-
+  if(is.na(risk)) {
+    risk <- 0
+  }
+  
   tibble(
     type = "portfolio",
     return = as.numeric(ret) - mv$tax_liability + mv$cash,
     risk = mv$investments_value - risk - mv$tax_liability + mv$cash,
-    income = mv$investments_annual_income - mv$tax_liability) %>%
-    dplyr::mutate(sharpe = (return - mv$net_value)/ (mv$net_value - risk))
+    income = mv$investments_annual_income - mv$tax_liability
+    ) %>%
+    dplyr::mutate(sharpe = (return - mv$net_value)/ (mv$net_value - risk + .00001))
 }
 
 

@@ -91,17 +91,6 @@ test_that("Optimize improves return target", {
     p1 %>% get_cash
   )
 
-  # Test that trade ids align to holding ids
-  trade_ids <- po_opt$trades %>%
-    filter(type == "sell") %>%
-    select(symbol, id) %>%
-    mutate_at("symbol", as.character) %>% 
-    inner_join(p1$holdings %>%
-                 select(symbol, id) %>%
-                 mutate_at("symbol", as.character),
-               by = "symbol")
-  expect_equal(trade_ids$id.x, trade_ids$id.y)
-  expect_equal(nrow(trade_ids), nrow(filter(po_opt$trades, type == "sell")))
 })
 
 
@@ -140,6 +129,19 @@ test_that("Optimize reduces risk target", {
       get_estimated_port_values(e1) %>%
       pull(.target)
   )
+  
+  
+  # Test that trade ids align to holding ids
+  trade_ids <- po_opt$trades %>%
+    filter(type == "sell") %>%
+    select(symbol, id) %>%
+    mutate_at("symbol", as.character) %>% 
+    inner_join(p1$holdings %>%
+                 select(symbol, id) %>%
+                 mutate_at("symbol", as.character),
+               by = "symbol")
+  expect_equal(trade_ids$id.x, trade_ids$id.y)
+  expect_equal(nrow(trade_ids), nrow(filter(po_opt$trades, type == "sell")))
   
 })
 
@@ -289,5 +291,93 @@ test_that("Sell only optimization works as expected", {
                      plot_iter = FALSE)
   
   expect_lte(po_opt$optimal_portfolio$cash, p1$cash)
+})
+
+
+
+# Two Symbol Testing ------------------------------------------------------
+
+
+# Update estimates
+e2 <- e1
+e2$symbols <- c("TLT", "SPY")
+e2$prices <- filter(e2$prices, symbol %in% e2$symbols)
+e2$returns <- filter(e2$returns, symbol %in% e2$symbols)
+e2$mu <- filter(e2$mu, symbol %in% e2$symbols)
+e2$sigma <- e2$sigma[rownames(e2$sigma) %in% e2$symbols, e2$symbols]
+e2$dividends <- filter(e2$dividends, symbol %in% e2$symbols)
+
+
+# Set params
+port_amount <- 50000
+trade_amount <- 1000
+
+
+test_that("Buy only optimization works as expected", {
+  
+  # Create Portfolio
+  p2 <- portfolio("two_symbol_port") %>%
+    make_deposit(amount = port_amount) %>%
+    update_market_value(prices)
+  
+  # Create Constraints
+  c2.1 <- constraints(symbols = e2$symbols) 
+  
+  # Create Optimization
+  po <- portfolio_optimization(p2, e2, c2.1, prices, target = "sharpe")
+  
+  # Optimize
+  po_opt <- optimize(po,
+                     n_pairs = 2,
+                     amount = trade_amount,
+                     lot_size = 1,
+                     max_iter = 10,
+                     max_runtime = 30,
+                     improve_lag = 10,
+                     min_improve = .001,
+                     plot_iter = FALSE)
+  
+  expect_lte(po_opt$optimal_portfolio$cash, port_amount)
+  expect_gt(po_opt$optimal_portfolio$holdings %>% 
+              filter(symbol == "TLT") %>% 
+              pull(quantity),
+            0)
+  expect_gt(po_opt$optimal_portfolio$holdings %>% 
+              filter(symbol == "SPY") %>% 
+              pull(quantity),
+            0)
+})
+
+
+test_that("Buy only with symbol constraints optimization works as expected", {
+  
+  # Create Portfolio
+  p2 <- portfolio("two_symbol_constraints_port") %>%
+    make_deposit(amount = port_amount) %>%
+    update_market_value(prices)
+  
+  # Create Constraints
+  c2.1 <- constraints(symbols = e2$symbols) %>% 
+    add_symbol_constraint(min = 0.4, max = 0.6)
+  
+  
+  # Create Optimization
+  po <- portfolio_optimization(p2, e2, c2.1, prices, target = "sharpe")
+  
+  # Optimize
+  po_opt <- optimize(po,
+                     n_pairs = 2,
+                     amount = trade_amount,
+                     lot_size = 1,
+                     max_iter = 10,
+                     max_runtime = 30,
+                     improve_lag = 10,
+                     min_improve = .001,
+                     plot_iter = FALSE)
+  
+  expect_lte(po_opt$optimal_portfolio$cash, port_amount)
+  
+  sym_constraint_check <- check_constraints(c2.1, po_opt$optimal_portfolio, eobj = e2)
+  map(sym_constraint_check$check, expect_true)
 })
 
